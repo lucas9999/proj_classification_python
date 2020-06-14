@@ -42,6 +42,7 @@ from sklearn.ensemble          import RandomForestClassifier
 from sklearn.ensemble          import GradientBoostingClassifier
 from sklearn.linear_model      import LogisticRegression
 from sklearn.naive_bayes       import MultinomialNB
+from lightgbm                  import LGBMClassifier
 # from xgboost                   import XGBClassifier
 from sklearn.svm               import SVC
 from sklearn.preprocessing     import OneHotEncoder

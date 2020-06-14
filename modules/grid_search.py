@@ -14,6 +14,7 @@ from sklearn.ensemble          import GradientBoostingClassifier
 from sklearn.linear_model      import LogisticRegression
 from sklearn.naive_bayes       import MultinomialNB
 # from xgboost                   import XGBClassifier
+from lightgbm                  import LGBMClassifier
 from sklearn.svm               import SVC
 import sklearn.metrics as skm
 from sklearn.metrics import precision_recall_curve
@@ -23,7 +24,10 @@ import sklearn as skl
 from  plotnine import *
 import plotnine
 
+
+
 import optuna
+
 
 class Objective(object):
     def __init__( self
@@ -137,6 +141,17 @@ class Objective(object):
         if self.params is not None:
           LR_params.update(params)
         model = skl.linear_model.LogisticRegression(**LR_params)
+        
+        
+      elif self.method == 'LGBM': # logistic retression
+        LGBM_params = {
+           'penalty'       : trial.suggest_categorical('penalty', ['l1', 'l2'])
+          ,'fit_intercept' : trial.suggest_categorical('fit_intercept', [True, False])
+          }
+        if self.params is not None:
+          LGBM_params.update(params)
+        model = LGBMClassifier(**LGBM_params)
+        
         
       elif self.method == 'XGB': # XGBoost
       
@@ -269,7 +284,7 @@ class Objective(object):
 
 
 
-def grid_optuna(  methods_list = None
+def grid_optuna_(methods_list = None
                 , direction    = "maximize"
                 , opt_function = 'aps'
                 , thresholds_list = None
@@ -280,58 +295,52 @@ def grid_optuna(  methods_list = None
                 , y_train   = None
                 , x_test    = None
                 , y_test    = None):
-  
-  """
-  
-  """
-  
-  trial_scores          = pd.DataFrame()
-  trial_hyperparameters = pd.DataFrame()
-  threshold_columns     = list(thresholds_list.columns)
-  
-  # loop over models
-  for i in range(len(methods_list)): 
-    
-    # loop over thresholds
-    method = methods_list[i]
-    for j in range(len(thresholds_list)):
-      
-      print([method,j])
-      
-      threshold = {threshold_columns[0]:thresholds_list.iloc[j,0], threshold_columns[1]:thresholds_list.iloc[j,1]}
-      
-      # grid
-      ob = Objective(method = method,  opt_function=opt_function, x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, threshold=threshold, priori=priori, pos_label = pos_label)
-      study = optuna.create_study( direction=direction)
-      opt = study.optimize(ob, n_trials=n_trials, gc_after_trial=True)
-      
-      
-      # getting scores from trials of grid
-      trial_scores_ij = ob.scores
-      
-      # preparing scores to collect
-      trial_scores_ij['method'] = method
-      trial_scores_ij['threshold'] = thresholds_list.iloc[j,0]
-      trial_scores_ij = trial_scores_ij.reset_index(drop = True)
-      trial_scores_ij = trial_scores_ij.reset_index(drop = False)
-      
-      trial_scores = pd.concat([trial_scores, trial_scores_ij], ignore_index = True)
-      trial_scores = trial_scores.rename({'index':'number'})
-      
-      
-      # getting hyperparameters from trials of grid
-      trial_hiperparameters_ij = study.trials_dataframe()
-      
-      # preparing hyperparameters to collect
-      trial_hiperparameters_ij = trial_hiperparameters_ij.drop(['datetime_start','datetime_complete','state'], axis = 1)
-      trial_hiperparameters_ij = trial_hiperparameters_ij.melt(id_vars = ['number'])
-      
-      trial_hiperparameters_ij['method'] = method
-      trial_hiperparameters_ij['threshold'] = thresholds_list.iloc[j,0]
-      
-      trial_hyperparameters = pd.concat([trial_hyperparameters, trial_hiperparameters_ij], ignore_index=True)
-      
-  return([trial_scores, trial_hyperparameters])  
+    trial_scores          = pd.DataFrame()
+    trial_hyperparameters = pd.DataFrame()
+    threshold_columns     = list(thresholds_list.columns)
+
+    # loop over models
+    for i in range(len(methods_list)): 
+      # i = 0
+      # loop over thresholds
+      method = methods_list[i]
+      for j in range(len(thresholds_list)):
+        # j = 0
+        print([method,j])
+
+        threshold = {threshold_columns[0]:thresholds_list.iloc[j,0], threshold_columns[1]:thresholds_list.iloc[j,1]}
+
+        # grid
+        ob = Objective(method = method,  opt_function=opt_function, x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, threshold=threshold, priori=priori, pos_label = pos_label)
+        study = optuna.create_study( direction=direction)
+        opt = study.optimize(ob, n_trials=n_trials, gc_after_trial=True) 
+
+
+        # getting scores from trials of grid
+        trial_scores_ij = ob.scores
+
+        # preparing scores to collect
+        trial_scores_ij['method'] = method
+        trial_scores_ij['threshold'] = thresholds_list.iloc[j,0]
+        trial_scores_ij = trial_scores_ij.reset_index(drop = True)
+        trial_scores_ij = trial_scores_ij.reset_index(drop = False)
+
+        trial_scores = pd.concat([trial_scores, trial_scores_ij], ignore_index = True)
+        trial_scores = trial_scores.rename({'index':'number'})
+
+
+        # getting hyperparameters from trials of grid
+        trial_hiperparameters_ij = study.trials_dataframe()
+
+        # preparing hyperparameters to collect
+        trial_hiperparameters_ij = trial_hiperparameters_ij.drop(['datetime_start','datetime_complete','state'], axis = 1) # 'system_attrs__number'
+        trial_hiperparameters_ij = trial_hiperparameters_ij.melt(id_vars = ['number'])
+
+        trial_hiperparameters_ij['method'] = method
+        trial_hiperparameters_ij['threshold'] = thresholds_list.iloc[j,0]
+
+        trial_hyperparameters = pd.concat([trial_hyperparameters, trial_hiperparameters_ij], ignore_index=True)
+    return([trial_scores, trial_hyperparameters])
 
 # data = r.diamonds
 # data['target'] = pd.Series(np.random.randint(0,2, len(data) ))
@@ -357,7 +366,7 @@ def grid_optuna(  methods_list = None
 # 
 # 
 # grid
-# grid_res = grid_optuna( methods_list = methods_list
+# grid_res = grid_optuna_( methods_list = methods_list
 #             ,thresholds_list = thresholds_list
 #             ,priori   = None
 #             ,n_trials = 3
@@ -403,6 +412,24 @@ def grid_optuna_hyperparameters_plot(data = None, method = 'RF', params_to_print
 # grid_optuna_hyperparameters_plot(data = grid_res[1], params_to_print = ['n_estimators', 'max_depth'], method = 'RF')
 
 
+
+def grid_optuna_hyperparameters_tables(trial_hyperparameters):
+    scores=trial_hyperparameters[['method','threshold','variable','value']] 
+    sc_gr = scores.groupby(['method','threshold'])
+
+    for name_1, group_1 in sc_gr:
+            group_1= group_1.reset_index(drop=True) 
+            group_1_gr = group_1.groupby(['variable'])
+            scores_n=pd.DataFrame()
+            for name_2, group_2 in group_1_gr:
+                group_2 = group_2[['variable','value']]
+                group_2 = group_2.reset_index(drop=True)
+                scores_n = pd.concat([scores_n, group_2['value']], axis = 1)
+            print(name_1)
+
+            scores_n.columns = list(group_1_gr.groups.keys())
+            scores_n['value'] = scores_n['value'].astype('float64')
+            display(scores_n.sort_values('value', ascending = False))
 
 
 
