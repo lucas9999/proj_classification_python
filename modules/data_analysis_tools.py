@@ -72,6 +72,7 @@ from plotnine                  import * # ggplot for python
 import shap
 # https://www.kaggle.com/discdiver/category-encoders-examples
 import category_encoders as ce
+from IPython.display import display, HTML
 
 # pd.set_option('precision', 2)
 # pd.options.display.float_format = '{:,}'.format
@@ -441,8 +442,73 @@ def statistics_numeric(data, var_x, var_group = None , x_lim= None, round = 2):
 
 
 
+# >>>  theils_u <<<<
 
 
+def theils_u(x, y):
+    """
+    https://towardsdatascience.com/the-search-for-categorical-correlation-a1cf7f1888c9
+    """
+    
+    s_xy = conditional_entropy(x,y)
+    x_counter = Counter(x)
+    total_occurrences = sum(x_counter.values())
+    p_x = list(map(lambda n: n/total_occurrences, x_counter.values()))
+    s_x = ss.entropy(p_x)
+    if s_x == 0:
+        return 1
+    else:
+        return (s_x - s_xy) / s_x
+
+
+
+
+def conditional_entropy(x,
+                        y,
+                        nan_strategy,
+                        nan_replace_value,
+                        log_base: float = math.e):
+    """
+    Calculates the conditional entropy of x given y: S(x|y)
+    Wikipedia: https://en.wikipedia.org/wiki/Conditional_entropy
+    Parameters:
+    -----------
+    x : list / NumPy ndarray / Pandas Series
+        A sequence of measurements
+    y : list / NumPy ndarray / Pandas Series
+        A sequence of measurements
+    nan_strategy : string, default = 'replace'
+        How to handle missing values: can be either 'drop' to remove samples
+        with missing values, or 'replace' to replace all missing values with
+        the nan_replace_value. Missing values are None and np.nan.
+    nan_replace_value : any, default = 0.0
+        The value used to replace missing values with. Only applicable when
+        nan_strategy is set to 'replace'.
+    log_base: float, default = e
+        specifying base for calculating entropy. Default is base e.
+    Returns:
+    --------
+    float
+    """
+    if nan_strategy == _REPLACE:
+        x, y = replace_nan_with_value(x, y, nan_replace_value)
+    elif nan_strategy == _DROP:
+        x, y = remove_incomplete_samples(x, y)
+    
+    y_counter = Counter(y)
+    xy_counter = Counter(list(zip(x, y)))
+    total_occurrences = sum(y_counter.values())
+    entropy = 0.0
+    for xy in xy_counter.keys():
+        p_xy = xy_counter[xy] / total_occurrences
+        p_y = y_counter[xy[1]] / total_occurrences
+        entropy += p_xy * math.log(p_y / p_xy, log_base)
+    return entropy
+
+
+
+
+# >>>  conditional entrophy <<<<
 
 
 # >>>  V-cramer <<<<
@@ -1226,6 +1292,14 @@ def feature_importance_class_elastic_net(l1_ratio = 0.5, x_train=None, y_train=N
 
 
 ### Other things
+
+
+def h(text, size = 3, bold = True, color = 'blue'):
+    if not bold:
+        return(HTML('<font size = "' + str(size) + '" color= "' + color + '" >' + text + '</font>' ))
+    else:
+        return(HTML('<font size = " ' + str(size) + '" color= "' + color + '" ><b>' + text + '</b></font>' ))
+
 
 def sbs_(dfs:list, captions:list):
     

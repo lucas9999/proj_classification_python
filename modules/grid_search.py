@@ -435,7 +435,7 @@ def grid_optuna_hyperparameters_tables(trial_hyperparameters):
 
 
 
-
+# hiplot.Experiment.from_iterable(data_df.reset_index(drop=True).to_dict(orient='Index').values()).display()
 
 
 
