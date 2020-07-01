@@ -1,0 +1,1 @@
+first create R project. Then create git. After that copy elements from the template
