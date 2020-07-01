@@ -2,11 +2,11 @@
 
 # Dziennik modeli
 
-```{r echo=FALSE, eval=TRUE,  results = 'asis', warning=FALSE}
+```{r eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
 require(gt)
 
-dziennik <- data.frame(Model=sort(rep(c('EWS', 'Debt Sales','Recovery', 'OCR_One_Pager', 'Wolumeny CKK'),3)), Wersja = rep(c('v.0.1','v.0.2','v.0.3'),5), Autor = rep(c('Lukasz Muszynski', 'Krzysztof Dylus', 'Andrzej Olszyna'), 5), Zlecone_przez = rep(c('CKD', 'CKD','CKD','CAWK', 'CAWK','CAWK','CKK', 'CKK','CKK','CAWK', 'CAWK','CAWK','CAWK', 'CAWK','CAWK')), Data_wdrozenia = rep(c('2020-01-01'), 15), Zagadnienie=c('klasyfikacja binarna', 'klasyfikacja binarna', 'klasyfikacja binarna','klasyfikacja binarna', 'klasyfikacja binarna', 'klasyfikacja binarna','OCR PDF-ow', 'OCR PDF-ow', 'OCR PDF-ow','klasyfikacja binarna', 'klasyfikacja binarna', 'klasyfikacja binarna','szereg czasowy','szereg czasowy','szereg czasowy'), Deployment = c('Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)','IWA','IWA','IWA', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)'), Link_PL=rep(c('...'),15), Link_EN=rep(c('...'),15) ) 
+dziennik <- data.frame(Model=sort(rep(c('EWS', 'Debt Sales','Recovery', 'OCR_One_Pager', 'Wolumeny CKK'),3)), Wersja = rep(c('v.0.1','v.0.2','v.0.3'),5), Autor = rep(c('Lukasz Muszynski', 'Krzysztof Dylus', 'Andrzej Olszyna'), 5), Zlecone_przez = rep(c('CKD', 'CKD','CKD','CAWK', 'CAWK','CAWK','CKK', 'CKK','CKK','CAWK', 'CAWK','CAWK','CAWK', 'CAWK','CAWK')), Data_wdrozenia = rep(c('2020-01-01'), 15), Data_wycofania = rep(c('2020-03-01'), 15), Zagadnienie=c('klasyfikacja binarna', 'klasyfikacja binarna', 'klasyfikacja binarna','klasyfikacja binarna', 'klasyfikacja binarna', 'klasyfikacja binarna','OCR PDF-ow', 'OCR PDF-ow', 'OCR PDF-ow','klasyfikacja binarna', 'klasyfikacja binarna', 'klasyfikacja binarna','szereg czasowy','szereg czasowy','szereg czasowy'), Deployment = c('Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)','IWA','IWA','IWA', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)', 'Server modelowy (Python)'), Link_PL=rep(c('...'),15), Link_EN=rep(c('...'),15) ) 
 
 
 
@@ -35,7 +35,7 @@ dziennik %>%
 
 Karta modelu
 <br><br>
-```{r eval=TRUE, echo=FALSE,  results = 'asis'}
+```{r eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 require(tibble)
 
 require(kableExtra)
@@ -44,6 +44,9 @@ require(kableExtra)
 library(dplyr)
 library(knitr)
 library(kableExtra)
+require(gr)
+require(gtable)
+library(gridExtra)
 
 knit_table <- function(df){
 
@@ -85,6 +88,7 @@ grid.table(t, theme = tt3, rows = NULL)
 
 ###### Cel biznesowy
 ###### Narzędzie i źródła danych
+###### Architektura modelu
 
 
 #### Analiz zmiennych
