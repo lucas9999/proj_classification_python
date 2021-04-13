@@ -179,7 +179,7 @@ def cross_tab(data, var_1 = None, var_2 = None, round = 1, normalize = 'index'):
 
 def plot_count_bar(data, var_y, var_x):
     data['target_str'] = data[var_y].astype(str)
-    t1 = pd.crosstab(data[var_1], data['target_str'])
+    t1 = pd.crosstab(data[var_x], data['target_str'])
     t1.reset_index(level=0, inplace=True)
     data_cross = t1.melt(id_vars = 'cut')
     print((ggplot() +
@@ -352,9 +352,15 @@ def A_F_correlation_selection(data = None, y = None, analytical_table_file = Non
     #     v_cramer = correlation_cramers_v(data[x], data[y], round = round)
     if y_rec_type in ['n','bn','cn'] and x_rec_type in ['bn', 'n', 'cn']: # correlation for pair of numeric variables
       if analytical_table.loc[analytical_table['var'] == y, 'pearson'].values[0] == 1:
-        pearson = np.round(data[[x,y]].corr().iloc[0,1], round)
+          try:
+              pearson = np.round(data[[x, y]].corr().iloc[0, 1], round)
+          except:
+              print(f'pearson_not_calculated for {x} and {y}.')
       if analytical_table.loc[analytical_table['var'] == y, 'kendall'].values[0] == 1:
-        kendall = np.round(data[[x,y]].corr(method = 'kendall').iloc[0,1], round)
+          try:
+              kendall = np.round(data[[x, y]].corr(method='kendall').iloc[0, 1], round)
+          except:
+              print(f'kendall_not_calculated for {x} and {y}.')
     elif (y_rec_type in ['n', 'bn'] and x_rec_type in ['c']) or  (y_rec_type in ['c'] and x_rec_type in ['n', 'bn']): # correlation for pair of numeric and categorical variables
       if analytical_table.loc[analytical_table['var'] == y, 'ratio'].values[0] == 1:
         if y_rec_type in ['c'] and x_rec_type in ['n', 'bn']:
@@ -778,6 +784,31 @@ def correlation_woe(data, var_x, var_y):
     new_var_name = var_x + '_woe'
     data[new_var_name] = woe.transform(data[var_x])
     return(data[[var_x, new_var_name]].drop_duplicates())
+
+
+
+
+def distance_wasserstein_target(data, var_x, var_y):
+  target_categories = data[var_y].drop_duplicates().to_list()
+
+  results = {}
+  var_x_norm = var_y + '_norm'
+  data = data[data[var_x].notnull() & data[var_y].notnull()]
+  data[var_x_norm] = (data[var_x] - np.mean(data[var_x].values)) / np.std(data[var_x].values)
+
+  for i in target_categories:
+      for j in target_categories:
+          if j > i:
+              wasser = scipy.stats.wasserstein_distance(  u_values = data.loc[data[var_y] == i, var_x_norm]
+                                                        , v_values = data.loc[data[var_y] == j, var_x_norm]
+                                                        , u_weights = None
+                                                        , v_weights = None)
+              results[str(i) + '_' + str(j)] = wasser
+
+  return (pd.DataFrame.from_dict(results, orient='index'))
+
+
+
 
 
 
