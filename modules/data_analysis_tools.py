@@ -3,7 +3,7 @@
   ########################### ML tools
   
   
-  #########
+#########
 # NOTES #
 #########
 
@@ -73,6 +73,13 @@ import shap
 # https://www.kaggle.com/discdiver/category-encoders-examples
 import category_encoders as ce
 from IPython.display import display, HTML
+from category_encoders.woe import WOEEncoder
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn import datasets
 
 # pd.set_option('precision', 2)
 # pd.options.display.float_format = '{:,}'.format
@@ -167,6 +174,18 @@ def cross_tab(data, var_1 = None, var_2 = None, round = 1, normalize = 'index'):
     t5 = pd.concat([t3, t4], axis=1)
     res = pd.merge(res, t5, left_index=True, right_index=True)
     return(res)
+
+
+
+def plot_count_bar(data, var_y, var_x):
+    data['target_str'] = data[var_y].astype(str)
+    t1 = pd.crosstab(data[var_1], data['target_str'])
+    t1.reset_index(level=0, inplace=True)
+    data_cross = t1.melt(id_vars = 'cut')
+    print((ggplot() +
+    geom_bar(data=data, mapping=aes(x=var_x, fill = 'target_str')) +
+    geom_label(data=data_cross, mapping=aes(x=var_x, y = 'value', fill = 'target_str', label = 'value'), position='stack' )))
+
 
 
 
@@ -572,10 +591,28 @@ def correlation_cramer_v_matrix(data, vars, heatmap = True, width = 10, height =
   if heatmap:
       plot_heatmap(data=np.round(ar, 2) , width = width, height = height, color_threshold = color_threshold)
   else:
-      return( ar)
+      return(ar)
 
 
 # correlation_cramer_v_matrix(data_, vars=['czy_wynagrodzenie', 'FLAGA_RESPONSE'], heatmap=True)
+
+
+
+def correlation_v_cramer_grouped(data_, var_main, var_other, var_group):
+    grouped = data_.groupby(var_group)
+    results = []
+    for group_name_i, group_i in grouped:
+        results_i = []
+        for v in var_other:
+            results_i.append(correlation_cramers_v(group_i[var_main], group_i[v], round=2))
+        results_i = pd.DataFrame([[group_name_i] + results_i], columns = ['category'] + var_other)
+        results.append(results_i)
+    results = pd.concat(results)
+    return results
+
+
+
+
 
 
 
@@ -655,6 +692,26 @@ def correlation_ratio_matrix(data, vars_cat, vars_num, heatmap = True, width = 1
 
 
 
+def correlation_ratio_grouped(data_, var_main, var_other, var_group, is_var_main_num = True, round = 2):
+    grouped = data_.groupby(var_group)
+    results = []
+    for group_name_i, group_i in grouped:
+        results_i = []
+        group_i = group_i.reset_index()
+        for v in var_other:
+            if is_var_main_num:
+                corr_ratio = correlation_ratio(categories = group_i[v], measurements = group_i[var_main])
+            else:
+                corr_ratio = correlation_ratio(categories = group_i[var_main], measurements = group_i[v])
+            results_i.append(corr_ratio)
+        results_i = pd.DataFrame([[group_name_i] + results_i], columns = ['category'] + var_other)
+        results.append(results_i)
+    results = pd.concat(results)
+    return results
+
+
+
+
 
 
 # >>> pearson correlation <<<
@@ -685,6 +742,42 @@ def correlation_pearson(data, vars = None, heatmap = False, width = 10, height =
 
 
 
+
+
+def correlation_pearson_grouped(data_, var_main, var_other, var_group, method = 'pearson', round = 2):
+    grouped = data_.groupby(var_group)
+    results = []
+    for group_name_i, group_i in grouped:
+        results_i = []
+        for v in var_other:
+            results_i.append(np.round(group_i[[var_main,v]].corr(method=method).iloc[0,1], round))
+        results_i = pd.DataFrame([[group_name_i] + results_i], columns = ['category'] + var_other)
+        results.append(results_i)
+    results = pd.concat(results)
+    return results
+
+
+
+
+
+
+# >>> woe correlation <<<
+
+def correlation_woe(data, var_x, var_y):
+    woe = WOEEncoder(  verbose=0
+                     , cols=None
+                     , drop_invariant=False
+                     , return_df=True
+                     , handle_unknown='value'
+                     , handle_missing='value'
+                     , random_state=None
+                     , randomized=False
+                     , sigma=0.05
+                     , regularization=1.0)
+    woe.fit(X=data[var_x], y=data[var_y])
+    new_var_name = var_x + '_woe'
+    data[new_var_name] = woe.transform(data[var_x])
+    return(data[[var_x, new_var_name]].drop_duplicates())
 
 
 
