@@ -1415,6 +1415,83 @@ def feature_importance_class_elastic_net(l1_ratio = 0.5, x_train=None, y_train=N
 
 
 
+
+
+
+#####################
+# combined summries #
+#####################
+
+
+
+def var_categorical_summary(data, var_x, var_y):
+    display(h('statistics by target classes'))
+    display(cross_tab(  data      = data
+              , var_1     = var_y
+              , var_2     = var_x
+              , round     = 1
+              , normalize = 'index'))
+
+    plot_count_bar(data, var_y, var_x)
+
+    display(h('V-cramer and WoE'))
+    display(correlation_cramers_v(  var_1 = data[var_x]
+                          , var_2 = data[var_y]
+                          , round = 2))
+
+    display(correlation_woe(  data
+                    , var_x = var_x
+                    , var_y = var_y))
+
+
+
+
+
+
+def var_numerical_summary(data, var_x, var_y, var_group=None, round=2):
+    display(h('statistics'))
+    display(statistics_numeric(  data      = data  # data set
+                       , var_x     = var_x # variable
+                       , var_group = None  # grouping variable (optional)
+                       , x_lim     = None  # min-max values limit (for example to remove outliers)
+                       , round     = 2))    # number of decimal places to round
+
+    display(h('statistics - grouped'))
+    display(statistics_numeric(  data      = data  # data set
+                       , var_x     = var_x # variables
+                       , var_group = var_group  # grouping variable (optional)
+                       , x_lim     = None  # min-max values limit (for example to remove outliers)
+                       , round     = round))    # number of decimal places to round
+
+    display(h('density plot'))
+    # bez grupowanie
+    display(plot_density(  data      = data  # data set
+                 , var_x     = var_x # grouping variable (optional)
+                 , var_group = None  # variable
+                 , bw_method = 0.2   # bandwidth for kernel
+                 , x_lim     = None  # min-max values limit (for example to remove outliers)
+                 , fig_w     = 12    # plot width
+                 , fig_h     = 8))    # plot hight
+
+    display(h('density plot - grouped'))
+    display(plot_density(  data      = data  # data set
+                 , var_x     = var_x # grouping variable (optional)
+                 , var_group = var_group # variables
+                 , bw_method = 0.2   # bandwidth for kernel
+                 , x_lim     = None  # min-max values limit (for example to remove outliers)
+                 , fig_w     = 12    # plot width
+                 , fig_h     = 8))    # plot hight
+
+    display(h('pearson correlation with target'))
+    display(correlation_pearson(data=data, vars = [var_x, var_y]))
+    display(h('wasserstein distance'))
+    display(distance_wasserstein_target(data, var_x , var_y))
+
+
+
+
+
+
 ### Other things
 
 
