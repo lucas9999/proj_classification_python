@@ -2,7 +2,26 @@
   
   ########################### ML tools
   
-  
+
+# TOC
+# NOTES #
+# Basic statistics #
+# Correlation #
+# Basic plots #
+# Variables transformation and encoding #
+# Features rankings #
+# OUTLIERS #
+# IML #
+# SUMMARIES COMBINED #
+# OTHER THINGS #
+
+
+
+
+
+
+
+
 #########
 # NOTES #
 #########
@@ -80,6 +99,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn import datasets
+import numbers
 
 # pd.set_option('precision', 2)
 # pd.options.display.float_format = '{:,}'.format
@@ -119,7 +139,7 @@ def glimpse_data(data, var_cat = []):
   num = num
   
   # calculations for numerical variables
-  df1 = data.loc[:,num].apply(lambda x : [sum(pd.isnull(x)), sum(pd.isnull(x))/len(x) , min(x), np.quantile(x, q=0.25), np.quantile(x, q=0.5), np.quantile(x, q=0.75),  max(x)], result_type = 'expand')
+  df1 = data.loc[:,num].apply(lambda x : [sum(pd.isnull(x)), sum(pd.isnull(x))/len(x) , min(x), np.nanquantile(x, q=0.25), np.nanquantile(x, q=0.5), np.nanquantile(x, q=0.75),  max(x)], result_type = 'expand')
   df2 = pd.DataFrame()
   
   # calculations for categorical variables
@@ -181,7 +201,7 @@ def plot_count_bar(data, var_y, var_x):
     data['target_str'] = data[var_y].astype(str)
     t1 = pd.crosstab(data[var_x], data['target_str'])
     t1.reset_index(level=0, inplace=True)
-    data_cross = t1.melt(id_vars = 'cut')
+    data_cross = t1.melt(id_vars = var_x)
     print((ggplot() +
     geom_bar(data=data, mapping=aes(x=var_x, fill = 'target_str')) +
     geom_label(data=data_cross, mapping=aes(x=var_x, y = 'value', fill = 'target_str', label = 'value'), position='stack' )))
@@ -1196,7 +1216,10 @@ def feature_importance_class_RF(n_estimators, x_train, y_train):
 
 
 
-# OUTLIERES
+
+############
+# OUTLIERS #
+############
 
 # >>> Isolation Forest <<< 
 
@@ -1219,6 +1242,60 @@ def outlieres_IF(n_estimators, x_train):
   x_train['anomaly'] = pred
   return(x_train)
 
+
+
+
+
+def outliers_num_fitler(data, var, filters_num):
+    """
+    :param data: pandas DataFrame
+    :param var: string with variable name to filter
+    :param filters_num: boundries for filtering
+    :return: 
+    """
+    down_bound = filters_num[var][0]
+    up_bound = filters_num[var][1]
+
+    if not ((isinstance(down_bound, numbers.Number) or down_bound is None) and (
+          isinstance(up_bound, numbers.Number) or up_bound is None)):
+      raise Exception('LUCAS: filter bouds are not numbers')
+
+    if down_bound is None:
+      data = data.loc[data[var] <= up_bound]
+    if up_bound is None:
+      data = data.loc[data[var] >= down_bound]
+    else:
+      if down_bound >= up_bound:
+          raise Exception('LUCAS: the up bound is smaller or equal the down bound')
+      data = data.loc[(data[var] >= down_bound) & (data[var] <= up_bound)]
+    return (data)
+
+
+
+def outliers_num_replace(data, var, filters_num, up_repl=None, down_repl=None):
+  down_bound = filters_num[var][0]
+  up_bound = filters_num[var][1]
+
+  df = data.copy()
+
+  if not ((isinstance(down_bound, numbers.Number) or down_bound is None) and (
+          isinstance(up_bound, numbers.Number) or up_bound is None)):
+      raise Exception('LUCAS: filter bouds are not numbers')
+
+  if down_repl is None:
+      down_repl = down_bound
+
+  if up_repl is None:
+      up_repl = up_bound
+
+  if down_repl is not None:
+      df.loc[df[var] < down_bound, var] = down_repl
+
+  if up_repl is not None:
+      if up_repl < up_bound:
+          raise Exception('LUCAS: ')
+      df.loc[df[var] > up_bound, var] = up_repl
+  return (df)
 
 
 
@@ -1291,9 +1368,9 @@ def Imputation_numeric(   data
 
 
 
-###########################
-# IML (under development) #
-###########################
+#######
+# IML #
+#######
 
 # >>> shapley value <<<
 
@@ -1418,9 +1495,9 @@ def feature_importance_class_elastic_net(l1_ratio = 0.5, x_train=None, y_train=N
 
 
 
-#####################
-# combined summries #
-#####################
+######################
+# SUMMARIES COMBINED #
+######################
 
 
 
@@ -1448,7 +1525,7 @@ def var_categorical_summary(data, var_x, var_y):
 
 
 
-def var_numerical_summary(data, var_x, var_y, var_group=None, round=2):
+def var_numerical_summary(data, var_x, var_y, var_group=None, round=2, filters_num=None):
     display(h('statistics'))
     display(statistics_numeric(  data      = data  # data set
                        , var_x     = var_x # variable
@@ -1462,6 +1539,9 @@ def var_numerical_summary(data, var_x, var_y, var_group=None, round=2):
                        , var_group = var_group  # grouping variable (optional)
                        , x_lim     = None  # min-max values limit (for example to remove outliers)
                        , round     = round))    # number of decimal places to round
+
+    if filters_num is not None:
+        data = outliers_num_fitler(data=data, var=var_x, filters_num=filters_num)
 
     display(h('density plot'))
     # bez grupowanie
@@ -1491,8 +1571,9 @@ def var_numerical_summary(data, var_x, var_y, var_group=None, round=2):
 
 
 
-
-### Other things
+################
+# OTHER THINGS #
+################
 
 
 def h(text, size = 3, bold = True, color = 'blue'):
