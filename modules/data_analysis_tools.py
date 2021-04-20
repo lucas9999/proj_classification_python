@@ -197,14 +197,14 @@ def cross_tab(data, var_1 = None, var_2 = None, round = 1, normalize = 'index'):
 
 
 
-def plot_count_bar(data, var_y, var_x):
+def plot_count_bar(data, var_y, var_x, x_angle = 0):
     data['target_str'] = data[var_y].astype(str)
     t1 = pd.crosstab(data[var_x], data['target_str'])
     t1.reset_index(level=0, inplace=True)
     data_cross = t1.melt(id_vars = var_x)
     print((ggplot() +
     geom_bar(data=data, mapping=aes(x=var_x, fill = 'target_str')) +
-    geom_label(data=data_cross, mapping=aes(x=var_x, y = 'value', fill = 'target_str', label = 'value'), position='stack' )))
+    geom_label(data=data_cross, mapping=aes(x=var_x, y = 'value', fill = 'target_str', label = 'value'), position='stack' ) + theme(axis_text_x = element_text(rotation=x_angle) ) ) )
 
 
 
@@ -214,7 +214,7 @@ def variable_diagnostic(data, var, print_res = True, levels_n_limit = 7, levels_
   Purpse:
     Basic diagnostic for any type of variables. 
     
-  Arguments:
+  Arguments:out
     data: DataFrame
     var: name or index of variable to analyse
     print_res: If 'True' then result will beprinted in more readable way. If 'False' function just returns list of results.
@@ -756,14 +756,14 @@ def correlation_pearson(data, vars = None, heatmap = False, width = 10, height =
   """
   if vars is None:
     if heatmap:
-      plot_heatmap(data=np.round(data[vars].corr(method = method), 2), width = width, height = height, color_threshold = 0.05)
+      plot_heatmap(data=np.round(data[vars].astype(float).corr(method = method), 2), width = width, height = height, color_threshold = 0.05)
     else:
-      return(np.round(self.data[self.num].corr(method = method), round))
+      return(np.round(self.data[self.num].astype(float).corr(method = method), round))
   else:
     if heatmap:
-      plot_heatmap(data=np.round(data[vars].corr(method = method), 2), width = width, height = height, color_threshold = 0.05)
+      plot_heatmap(data=np.round(data[vars].astype(float).corr(method = method), 2), width = width, height = height, color_threshold = 0.05)
     else:
-      return(np.round(data[vars].corr(method = method), round))
+      return(np.round(data[vars].astype(float).corr(method = method), round))
 
 
 
@@ -1262,7 +1262,7 @@ def outliers_num_fitler(data, var, filters_num):
 
     if down_bound is None:
       data = data.loc[data[var] <= up_bound]
-    if up_bound is None:
+    elif up_bound is None:
       data = data.loc[data[var] >= down_bound]
     else:
       if down_bound >= up_bound:
@@ -1501,15 +1501,16 @@ def feature_importance_class_elastic_net(l1_ratio = 0.5, x_train=None, y_train=N
 
 
 
-def var_categorical_summary(data, var_x, var_y):
+def var_categorical_summary(data, var_x, var_y, x_angle = 0, normalize='index'):
     display(h('statistics by target classes'))
+    print('braki danych: ' + str(np.round(100 * sum(pd.isna(data[var_x])) / len(data), 2 )  ) + ' %' )
     display(cross_tab(  data      = data
               , var_1     = var_y
               , var_2     = var_x
               , round     = 1
-              , normalize = 'index'))
+              , normalize = normalize))
 
-    plot_count_bar(data, var_y, var_x)
+    plot_count_bar(data, var_y, var_x, x_angle = x_angle)
 
     display(h('V-cramer and WoE'))
     display(correlation_cramers_v(  var_1 = data[var_x]
@@ -1527,6 +1528,7 @@ def var_categorical_summary(data, var_x, var_y):
 
 def var_numerical_summary(data, var_x, var_y, var_group=None, round=2, filters_num=None):
     display(h('statistics'))
+    print('braki danych: ' + str(np.round(100 * sum(pd.isna(data[var_x])) /len(data) ,2) ) + ' %' )
     display(statistics_numeric(  data      = data  # data set
                        , var_x     = var_x # variable
                        , var_group = None  # grouping variable (optional)
