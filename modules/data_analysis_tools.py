@@ -197,16 +197,22 @@ def cross_tab(data, var_1 = None, var_2 = None, round = 1, normalize = 'index'):
 
 
 
-def plot_count_bar(data, var_y, var_x, x_angle = 0):
+def plot_count_bar(data, var_y, var_x, x_angle = 0, x_text_size = 8):
     data['target_str'] = data[var_y].astype(str)
     t1 = pd.crosstab(data[var_x], data['target_str'])
     t1.reset_index(level=0, inplace=True)
     data_cross = t1.melt(id_vars = var_x)
     print((ggplot() +
     geom_bar(data=data, mapping=aes(x=var_x, fill = 'target_str')) +
-    geom_label(data=data_cross, mapping=aes(x=var_x, y = 'value', fill = 'target_str', label = 'value'), position='stack' ) + theme(axis_text_x = element_text(rotation=x_angle) ) ) )
+    geom_label(data=data_cross, mapping=aes(x=var_x, y = 'value', fill = 'target_str', label = 'value'), position='stack' ) + theme(axis_text_x = element_text(rotation=x_angle, size = x_text_size) ) ) )
 
 
+def plot_percent_data(data, var_y, var_x, x_angle = 0, x_text_size = 8):
+    data_percent = data.groupby([var_y, var_x]).size()
+    data_percent = data_percent / data_percent.groupby(level=[0]).transform("sum") * 100
+    data_percent = data_percent.reset_index(name='counts')
+    print((ggplot(data=data_percent) + geom_bar(aes(x=var_x, y='counts', fill = var_x), stat='identity') + geom_label(
+        aes(x=var_x, y='counts', label='counts'), format_string='({:.1f}%)') + facet_grid('.~'+var_y)  + theme(axis_text_x = element_text(rotation=x_angle, size = x_text_size) ) ) )
 
 
 def variable_diagnostic(data, var, print_res = True, levels_n_limit = 7, levels_n_max = 30):
@@ -1501,7 +1507,7 @@ def feature_importance_class_elastic_net(l1_ratio = 0.5, x_train=None, y_train=N
 
 
 
-def var_categorical_summary(data, var_x, var_y, x_angle = 0, normalize='index'):
+def var_categorical_summary(data, var_x, var_y, x_angle = 0, normalize='index', x_text_size = 7):
     display(h('statistics by target classes'))
     print('braki danych: ' + str(np.round(100 * sum(pd.isna(data[var_x])) / len(data), 2 )  ) + ' %' )
     display(cross_tab(  data      = data
@@ -1510,7 +1516,8 @@ def var_categorical_summary(data, var_x, var_y, x_angle = 0, normalize='index'):
               , round     = 1
               , normalize = normalize))
 
-    plot_count_bar(data, var_y, var_x, x_angle = x_angle)
+    plot_percent_data(data, var_y, var_x, x_angle=x_angle, x_text_size = x_text_size)
+    plot_count_bar(data, var_y, var_x, x_angle = x_angle, x_text_size = x_text_size)
 
     display(h('V-cramer and WoE'))
     display(correlation_cramers_v(  var_1 = data[var_x]
