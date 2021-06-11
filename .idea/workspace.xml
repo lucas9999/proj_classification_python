@@ -21,7 +21,9 @@
   <component name="ChangeListManager">
     <list default="true" id="5559a407-fac9-4724-8636-577a3309dff8" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.ipynb_checkpoints/classification-imp-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/.ipynb_checkpoints/classification-imp-checkpoint.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/classification-imp.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/classification-imp.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modules/F_classification.py" beforeDir="false" afterPath="$PROJECT_DIR$/modules/F_classification.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modules/data_analysis_tools.py" beforeDir="false" afterPath="$PROJECT_DIR$/modules/data_analysis_tools.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -63,6 +65,12 @@
       </map>
     </option>
     <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="974" y="325" width="672" height="678" key="search.everywhere.popup" timestamp="1623443093479">
+      <screen x="62" y="0" width="2498" height="1440" />
+    </state>
+    <state x="974" y="325" width="672" height="678" key="search.everywhere.popup/62.0.2498.1440@62.0.2498.1440" timestamp="1623443093479" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

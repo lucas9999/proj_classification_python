@@ -1088,6 +1088,7 @@ class classification_model():
                   # Feature importance Permutation (FIP)
                   ,fip_n = None # number of tries in future importatnce
                   ,fip_sample_size = 0.5 # fraction of observation drawn for each sample
+                  ,fip_type = 'remove' # remove, permutate_train
                   ,model_fip = RandomForestClassifier(n_estimators=30, max_depth=7) # for fip you can provide only one model
                   ,fip_save_prob  = True
                   ,fip_save_class = True
@@ -1751,25 +1752,36 @@ class classification_model():
                 # simulation information
                 simulation_info = {'simulation_name':simulation_name, 'model_name':[model_fip_name],'sample_type':[sample_type], 'sample_nr':[f]}
                 
-                # categorical variables encoding (optional)
-                if  use_cat_enc  and model_framework not in  ['catboost']:
-                    x_train_fip, x_valid_fip, x_test = self.cat_encoding(x_train = x_train_fip , y_train = y_train_fip, x_valid = x_valid_fip, x_test = x_test,  cat_vars = x_var_cat, cat_encoding_method = cat_encoding_method)
-                
-                
+                print(fip_type)
                 # sample balancing (optional)
                 if balancing_method is not None:
                   x_train_fip, y_train_fip = self.set_balancing(x_train_fip, y_train_fip, method=balancing_method)
-                
-                
-                # variable permutation
-                x_train_fip_perm = copy.deepcopy(x_train_fip)
-                # x_valid_fip_perm = x_valid_fip
-                x_train_fip_perm[column] =  np.random.permutation(x_train_fip_perm[column])
-                # x_valid_fip_perm[column] =  np.random.permutation(x_valid_fip[column])
-                # if y_test is not None:
-                #     x_test_perm         = x_test
-                #     x_test_perm[column] = np.random.permutation(x_test[column])
-                
+                if fip_type == 'permutate_train':
+                    # variable permutation
+                    x_train_fip_perm = copy.deepcopy(x_train_fip)
+                    x_valid_fip_perm = copy.deepcopy(x_valid_fip)
+                    x_train_fip_perm[column] =  np.random.permutation(x_train_fip_perm[column])
+                    # x_valid_fip_perm[column] =  np.random.permutation(x_valid_fip_perm[column])
+                    if y_test is not None:
+                         x_test_perm         = copy.deepcopy(x_test)
+                    #     x_test_perm[column] = np.random.permutation(x_test_perm[column])
+                    # przeliczenie na nowo współrzędnych zmiennych jakościowych (np. dla catboost-a) - akurat tutaj zostaje po staremu
+                    cat_vars_indicies = self.cat_vars_indicies
+                elif fip_type == 'remove':
+                    x_train_fip_perm = copy.deepcopy(x_train_fip.drop(columns=column))
+                    x_valid_fip_perm = copy.deepcopy(x_valid_fip.drop(columns=column))
+                    if y_test is not None:
+                        x_test_perm = copy.deepcopy(x_test.drop(columns=column))
+                    # przeliczenie na nowo współrzędnych zmiennych jakościowych (np. dla catboost-a)
+                    x_var_cat = self.cat_vars
+                    x_var_cat = list(set(x_var_cat) - set([column]))
+                    cat_vars_indicies = [x_train_fip_perm.columns.get_loc(c) for c in x_var_cat if c in x_train_fip_perm]
+
+                # categorical variables encoding (optional)
+                if  use_cat_enc  and model_framework not in  ['catboost']:
+                    x_train_fip_perm, x_valid_fip_perm, x_test_perm = self.cat_encoding(x_train = x_train_fip_perm , y_train = y_train_fip, x_valid = x_valid_fip_perm, x_test = x_test_perm,  cat_vars = x_var_cat, cat_encoding_method = cat_encoding_method)
+
+
                 # model fitting
                 if models_fit_parameters is not None:
                     model_fip.fit(X=x_train_fip_perm, y=y_train_fip, **models_fit_parameters )
@@ -1796,12 +1808,12 @@ class classification_model():
                     self.probabilities_determining(y_true = y_train_fip
                                                   , prob = prob_train, simulation_name = simulation_name, model_name = model_fip_name, sample_type = sample_type, sample_nr = f, sample_name = column , set_type = 'train')
                     
-                    prob_valid = pd.DataFrame(model_fip.predict_proba(x_valid_fip), columns = [str(x) for x in model_fip.classes_], index = x_valid_fip.index)             
+                    prob_valid = pd.DataFrame(model_fip.predict_proba(x_valid_fip_perm), columns = [str(x) for x in model_fip.classes_], index = x_valid_fip.index)
                     self.probabilities_determining(y_true = y_valid_fip
                                                   , prob = prob_valid, simulation_name = simulation_name, model_name = model_fip_name, sample_type = sample_type, sample_nr = f, sample_name = column, set_type = 'valid' )
                     
                     if y_test is not None:
-                        prob_test = pd.DataFrame(model_fip.predict_proba(x_test), columns = [str(x) for x in model_fip.classes_], index=x_test.index)  
+                        prob_test = pd.DataFrame(model_fip.predict_proba(x_test_perm), columns = [str(x) for x in model_fip.classes_], index=x_test_perm.index)
                         self.probabilities_determining(y_true = y_test
                                                       , prob = prob_test, simulation_name = simulation_name, model_name = model_fip_name, sample_type = sample_type, sample_nr = f, sample_name = column, set_type = 'test')
                 
@@ -1811,10 +1823,10 @@ class classification_model():
                     self.classification_decision_automatic( x = x_train_fip_perm, y_true = y_train_fip
                                                           , model = model_fip, simulation_name = simulation_name, model_name = model_fip_name, sample_type = sample_type, sample_nr = f, sample_name = column, set_type = 'train')
                     
-                    self.classification_decision_automatic(  x = x_valid_fip, y_true = y_valid_fip
+                    self.classification_decision_automatic(  x = x_valid_fip_perm, y_true = y_valid_fip
                                                            , model = model_fip, simulation_name = simulation_name, model_name = model_fip_name, sample_type = sample_type, sample_nr = f, sample_name = column, set_type = 'valid')
                     if y_test is not None:
-                        self.classification_decision_automatic(  x = x_test, y_true = y_test
+                        self.classification_decision_automatic(  x = x_test_perm, y_true = y_test
                                                                , model = model_fip, simulation_name = simulation_name, model_name = model_fip_name, sample_type = sample_type, sample_nr = f, sample_name = column, set_type = 'test')
     
     
@@ -2504,9 +2516,36 @@ class classification_model():
     display( self.plot_scores(filter = {'if_automatic':[0], 'sample_type':[sample_type], 'set_type' : ['train'], 'simulation_name':[simulation_name]}, x_var = 'sample_nr', y_var='score_value', fill_var = 'model_name', facet = 'threshold_priori_id~score_name')
             ,self.plot_scores(filter = {'if_automatic':[0], 'sample_type':[sample_type], 'set_type' : ['valid'], 'simulation_name':[simulation_name]}, x_var = 'sample_nr', y_var='score_value', fill_var = 'model_name', facet = 'threshold_priori_id~score_name')
             ,self.plot_scores(filter = {'if_automatic':[0], 'sample_type':[sample_type], 'set_type' : ['test'],  'simulation_name':[simulation_name]}, x_var = 'sample_nr', y_var='score_value', fill_var = 'model_name', facet = 'threshold_priori_id~score_name'))
-  
-  
-  
+
+  def fast_conf_matrix_scores_flat_version(self, simulation_name, fig_w = 10, fig_h = 2.5):
+    # flat version of conf matrix and score
+    cf_matrix = self.confusion_matrix[(self.confusion_matrix['simulation_name']==simulation_name) & (self.confusion_matrix['sample_type']=='full') & (self.confusion_matrix['if_automatic']==0) ].drop(columns={'simulation_name','if_automatic','sample_name','sample_nr','sample_type'})
+    scores_matrix = self.scores[(self.scores['simulation_name']==simulation_name) & (self.scores['sample_type']=='full') & (self.scores['if_automatic']==0) ].drop(columns={'simulation_name','if_automatic','sample_name','sample_nr','sample_type'})
+    scores_matrix = scores_matrix.rename(columns = {'score_value':'_'})
+
+    scores_matrix = scores_matrix.set_index(['model_name','set_type','threshold_priori_id','score_name'])
+    scores_matrix = scores_matrix.unstack(3)
+
+    # usuwanie indeksów wierszowych
+    scores_matrix = scores_matrix.reset_index(drop=False)
+
+    # laczenie indeksow kolumnowych
+    scores_matrix.columns = [''.join(col).strip() for col in scores_matrix.columns.values]
+
+    # poprawka nazw indeksów kolumnowych
+    scores_matrix = scores_matrix.rename(columns={'model_name_':'model_name','set_type_':'set_type','threshold_priori_id_':'threshold_priori_id'})
+    cf_scores_matrix = pd.merge(cf_matrix, scores_matrix, on=['model_name','set_type','threshold_priori_id'])
+    cf_scores_matrix.columns = cf_scores_matrix.columns.astype(str)
+
+    cf_scores_matrix_test = cf_scores_matrix.loc[cf_scores_matrix['set_type']=='test']
+    plotnine.options.figure_size = (fig_w, fig_h)
+    display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='3', color='model_name', fill='model_name', group='model_name')) + ggtitle('(test)'))
+    display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id',y='_recall', color='model_name', fill='model_name',group='model_name')) + ggtitle('_recall  (test)') )
+    display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='_precision', color='model_name', fill='model_name', group='model_name')) + ggtitle('precision (test)'))
+
+    return(cf_scores_matrix)
+
+
   def fast_conf_matrix_scores(self, simulation_name):
     
     """
@@ -2604,7 +2643,7 @@ class classification_model():
     return([ self.sbs( [y_train_count, y_test_count]       ,['target train','target test'] )
             ,self.sbs( cf_train_list                                  ,['Confusion matrix  TRAIN ,   Model:  ' + x for x in labels_to_display] )
             ,self.sbs( cf_test_list                                   ,['Confusion matrix  TEST,    Model:  '  + x for x in labels_to_display] )
-            ,self.sbs( scores_list                                    ,['score: ' + x for x in scores_names_list])
+            #,self.sbs( scores_list                                    ,['score: ' + x for x in scores_names_list]) # na razie wyłączone. Za dużo tabel które można połączyć w jedną mniejszą tabelę.
             ,self.sbs( [feature_importance_enet, feature_importance_rf, feature_importance_rf_per, feature_importance_cat],['Feature Importance e-net', 'Feature Importance RF','Feature Permutation Importance RF', 'Feature Importance CATBOOST'])
             ,'recall = TP / TP + FN;   precision = TP / (TP + FP);    f1 = ( 2*TP ) / (2*TP + FP + FN );   balanced_accuracy = (TP/(TP+FN) + TN/(TN+FP)) / 2 '])
   
@@ -2644,8 +2683,8 @@ class classification_model():
     display(self.fast_correlation_matrices(simulation_name = simulation_name))
     display(self.h('target distribution, confussion matrix, scores and feature importance'))
     display(self.fast_conf_matrix_scores(simulation_name = simulation_name))
-    display(self.confusion_matrix[(self.confusion_matrix['sample_type']=='full') &
-                        (self.confusion_matrix['if_automatic']==0)].drop(columns=['simulation_name','if_automatic','sample_name','sample_nr', 'sample_type']))
+    display(self.h('flat confusion matrix and scores'))
+    display(self.fast_conf_matrix_scores_flat_version(simulation_name=simulation_name))
     display(self.h('density plots'))
     display(self.fast_dens_plot(simulation_name=simulation_name, sample_type = ['full']))
     display(self.h('density plot for Feature Importatnce Permutation'))

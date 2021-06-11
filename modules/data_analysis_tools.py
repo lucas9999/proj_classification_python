@@ -782,7 +782,7 @@ def correlation_pearson_grouped(data_, var_main, var_other, var_group, method = 
     for group_name_i, group_i in grouped:
         results_i = []
         for v in var_other:
-            results_i.append(np.round(group_i[[var_main,v]].corr(method=method).iloc[0,1], round))
+            results_i.append(np.round(group_i[[var_main,v]].astype('float').corr(method=method).iloc[0,1], round))
         results_i = pd.DataFrame([[group_name_i] + results_i], columns = ['category'] + var_other)
         results.append(results_i)
     results = pd.concat(results)
@@ -1266,11 +1266,11 @@ def outliers_num_fitler(data, var, filters_num):
           isinstance(up_bound, numbers.Number) or up_bound is None)):
       raise Exception('LUCAS: filter bouds are not numbers')
 
-    if down_bound is None:
+    if down_bound is None and up_bound is not None:
       data = data.loc[data[var] <= up_bound]
-    elif up_bound is None:
+    elif up_bound is None and down_bound is not None:
       data = data.loc[data[var] >= down_bound]
-    else:
+    elif down_bound is not None and up_bound is not None:
       if down_bound >= up_bound:
           raise Exception('LUCAS: the up bound is smaller or equal the down bound')
       data = data.loc[(data[var] >= down_bound) & (data[var] <= up_bound)]
