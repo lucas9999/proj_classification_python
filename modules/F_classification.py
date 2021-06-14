@@ -1998,7 +1998,24 @@ class classification_model():
                   geom_label(aes(x='model_name',y='score_value', label='score_value', fill = 'sample_nr')) + 
                   ylim([0,1]) + 
                   coord_flip())
-  
+
+
+  def scores_volatility(self, simulation_name):
+      scores = self.scores
+
+      scores_filtered = scores.loc[(scores['simulation_name'] == simulation_name) & (scores['if_automatic'] == 0)]
+
+      scores_group = scores_filtered.groupby(
+          ['model_name', 'set_type', 'sample_type', 'threshold_priori_id', 'score_name']).agg(
+          max=pd.NamedAgg(column='score_value', aggfunc='max'),
+          min=pd.NamedAgg(column='score_value', aggfunc=lambda x: min(x)),
+          mean=pd.NamedAgg(column='score_value', aggfunc=lambda x: np.nanmean(x)),
+          std=pd.NamedAgg(column='score_value', aggfunc=lambda x: np.nanstd(x))
+      )
+
+      scores_group = scores_group.reset_index()
+      return(scores_group)
+
   
   def plot_scores( self
                 , data_new = None
@@ -2540,7 +2557,7 @@ class classification_model():
     cf_scores_matrix_test = cf_scores_matrix.loc[cf_scores_matrix['set_type']=='test']
     plotnine.options.figure_size = (fig_w, fig_h)
     display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='3', color='model_name', fill='model_name', group='model_name')) + ggtitle('(test)'))
-    display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id',y='_recall', color='model_name', fill='model_name',group='model_name')) + ggtitle('_recall  (test)'))
+    display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='_recall', color='model_name', fill='model_name',group='model_name')) + ggtitle('_recall  (test)'))
     display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='_precision', color='model_name', fill='model_name', group='model_name')) + ggtitle('precision (test)'))
 
     return(cf_scores_matrix)
@@ -2686,9 +2703,9 @@ class classification_model():
     display(self.h('flat confusion matrix and scores'))
     display(self.fast_conf_matrix_scores_flat_version(simulation_name=simulation_name))
     display(self.h('density plots'))
-    display(self.fast_dens_plot(simulation_name=simulation_name, sample_type = ['full']))
+    display(self.fast_dens_plot(simulation_name=simulation_name, sample_type = ['full'], fig_w=15, fig_h=5))
     display(self.h('density plot for Feature Importatnce Permutation'))
-    display(self.fast_dens_plot(simulation_name=simulation_name, sample_type = ['fip']))
+    display(self.fast_dens_plot(simulation_name=simulation_name, sample_type = ['fip','full'], fig_w=15, fig_h=10))
     if cv_n is not None:
       display(self.h('scores by cross validation'))
       display(self.fast_scores_plot(simulation_name=simulation_name, sample_type = 'cv'))
@@ -2698,6 +2715,7 @@ class classification_model():
     if by_var is not None:
         display(self.h('scores by by_var'))
         display(self.fast_scores_plot(simulation_name=simulation_name, sample_type = 'by_var'))
+    display(self.scores_volatility(simulation_name=simulation_name))
     display(self.h('pr and roc curve'))
     display(self.plot_roc_pr_curves(simulation_name=simulation_name, set_type='test', sample_type = ['full'], y_category=pos_label))
     display(self.h('pr and roc curve for Feature Importatnce Permutation'))
