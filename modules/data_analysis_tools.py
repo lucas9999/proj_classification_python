@@ -215,6 +215,34 @@ def plot_percent_data(data, var_y, var_x, x_angle = 0, x_text_size = 8):
         aes(x=var_x, y='counts', label='counts'), format_string='({:.1f}%)') + facet_grid('.~'+var_y)  + theme(axis_text_x = element_text(rotation=x_angle, size = x_text_size) ) ) )
 
 
+def plot_percent_data_stacked(data, var_y, var_x, x_angle=0, x_text_size=10):
+    data_percent = data.groupby([var_y, var_x]).size()
+    data_percent = data_percent / data_percent.groupby(level=[0]).transform("sum") * 100
+    data_percent = data_percent.reset_index(name='counts')
+
+    display((ggplot(data=data_percent) + geom_bar(aes(x=var_y, y='counts', fill=var_x), stat='identity',
+                                                position='stack')) + geom_label(
+      aes(x=var_y, y='counts', label='counts', fill=var_x), position='stack', format_string='({:.1f}%)') + theme(
+      axis_text_x=element_text(rotation=x_angle, size=x_text_size)))
+
+
+def plot_quantiles_grouped(data, group_var, var_y, x_angle = 0, x_text_size = 10):
+
+  data_q = data.groupby(group_var).agg(q_05=pd.NamedAgg(column=var_y, aggfunc=lambda x: np.quantile(a=x, q=0.05)),
+                                       q_25=pd.NamedAgg(column=var_y, aggfunc=lambda x: np.quantile(a=x, q=0.25)),
+                                       q_50=pd.NamedAgg(column=var_y, aggfunc=lambda x: np.quantile(a=x, q=0.50)),
+                                       q_75=pd.NamedAgg(column=var_y, aggfunc=lambda x: np.quantile(a=x, q=0.75)),
+                                       q_95=pd.NamedAgg(column=var_y, aggfunc=lambda x: np.quantile(a=x, q=0.95)))
+
+  # data_q.columns = ['_'.join(col).strip() for col in data_q.columns.values]
+  data_q = data_q.reset_index()
+  data_q = data_q.melt(id_vars=group_var)
+  data_q
+  display((ggplot(data=data_q) + geom_line(
+      aes(x=group_var, y='value', fill='variable', color='variable', group='variable')  ) + theme(axis_text_x = element_text(rotation=x_angle, size = x_text_size)) ))
+
+
+
 def variable_diagnostic(data, var, print_res = True, levels_n_limit = 7, levels_n_max = 30):
   """
   Purpse:
