@@ -873,20 +873,20 @@ def plot_density(data, var_group = None, var_x = None, bw_method = 0.2, x_lim = 
     data = data.loc[data[var_x].between(x_lim[0], x_lim[1]),]
   
   if var_group is not None:
-    sns.boxplot(x=data[var_x],
-                 ax = axes[0],
-                 y=data[var_group],  
-                 width=0.5,
-                 orient='h')
+    sns.boxplot( x      = data[var_x],
+                 ax     = axes[0],
+                 y      = data[var_group],
+                 width  = 0.5,
+                 orient = 'h')
     for label, df in data.groupby(var_group):
       df[var_x].plot(kind="kde", label=label, bw_method=bw_method, ax = axes[1])
       data[var_group] = data[var_group].astype('category')
   else:
     # data[var_group] = data[var_group].astype('category')
-    sns.boxplot(x=data[var_x],
-                 ax = axes[1],
-                 width=0.5,
-                 orient='h')
+    sns.boxplot( x      = data[var_x],
+                 ax     = axes[1],
+                 width  = 0.5,
+                 orient = 'h')
     data[var_x].plot(kind="kde", bw_method=bw_method, ax = axes[0])
   plt.legend()
   plt.show()
@@ -1621,4 +1621,31 @@ def sbs_(dfs:list, captions:list):
                   )
         output += "\xa0\xa0\xa0"
     display(HTML(output))
+
+
+
+
+
+
+
+def train_test_val_split(X, Y, split=(0.2, 0.1), shuffle=True):
+    """Split dataset into train/val/test subsets by 70:20:10(default).
+
+    Args:
+    X: List of data.
+    Y: List of labels corresponding to data.
+    split: Tuple of split ratio in `test:val` order.
+    shuffle: Bool of shuffle or not.
+
+    Returns:
+    Three dataset in `train:test:val` order.
+    """
+    from sklearn.model_selection import train_test_split
+    assert len(X) == len(Y), 'The length of X and Y must be consistent.'
+    X_train, X_test_val, Y_train, Y_test_val = train_test_split(X, Y, test_size=(split[0] + split[1]), shuffle=shuffle)
+    X_test, X_val, Y_test, Y_val = train_test_split(X_test_val, Y_test_val, test_size=split[1], shuffle=False)
+    return (X_train, Y_train), (X_test, Y_test), (X_val, Y_val)
+
+
+
 

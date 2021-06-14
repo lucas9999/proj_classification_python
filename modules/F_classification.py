@@ -1752,7 +1752,7 @@ class classification_model():
                 # simulation information
                 simulation_info = {'simulation_name':simulation_name, 'model_name':[model_fip_name],'sample_type':[sample_type], 'sample_nr':[f]}
                 
-                print(fip_type)
+
                 # sample balancing (optional)
                 if balancing_method is not None:
                   x_train_fip, y_train_fip = self.set_balancing(x_train_fip, y_train_fip, method=balancing_method)
@@ -2540,7 +2540,7 @@ class classification_model():
     cf_scores_matrix_test = cf_scores_matrix.loc[cf_scores_matrix['set_type']=='test']
     plotnine.options.figure_size = (fig_w, fig_h)
     display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='3', color='model_name', fill='model_name', group='model_name')) + ggtitle('(test)'))
-    display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id',y='_recall', color='model_name', fill='model_name',group='model_name')) + ggtitle('_recall  (test)') )
+    display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id',y='_recall', color='model_name', fill='model_name',group='model_name')) + ggtitle('_recall  (test)'))
     display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='_precision', color='model_name', fill='model_name', group='model_name')) + ggtitle('precision (test)'))
 
     return(cf_scores_matrix)
