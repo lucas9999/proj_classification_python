@@ -2000,10 +2000,10 @@ class classification_model():
                   coord_flip())
 
 
-  def scores_volatility(self, simulation_name):
+  def scores_volatility(self, simulation_name, sample_type, set_type):
       scores = self.scores
 
-      scores_filtered = scores.loc[(scores['simulation_name'] == simulation_name) & (scores['if_automatic'] == 0)]
+      scores_filtered = scores.loc[(scores['simulation_name'] == simulation_name) & (scores['if_automatic'] == 0)  & (scores['sample_type']==sample_type) & (scores['set_type'].isin(set_type))]
 
       scores_group = scores_filtered.groupby(
           ['model_name', 'set_type', 'sample_type', 'threshold_priori_id', 'score_name']).agg(
@@ -2530,9 +2530,9 @@ class classification_model():
     Plot line plot with scores for train and test test (sample_type can be selected). This is wrapper for method 'plot_scores'
     """
     
-    display( self.plot_scores(filter = {'if_automatic':[0], 'sample_type':[sample_type], 'set_type' : ['train'], 'simulation_name':[simulation_name]}, x_var = 'sample_nr', y_var='score_value', fill_var = 'model_name', facet = 'threshold_priori_id~score_name')
-            ,self.plot_scores(filter = {'if_automatic':[0], 'sample_type':[sample_type], 'set_type' : ['valid'], 'simulation_name':[simulation_name]}, x_var = 'sample_nr', y_var='score_value', fill_var = 'model_name', facet = 'threshold_priori_id~score_name')
-            ,self.plot_scores(filter = {'if_automatic':[0], 'sample_type':[sample_type], 'set_type' : ['test'],  'simulation_name':[simulation_name]}, x_var = 'sample_nr', y_var='score_value', fill_var = 'model_name', facet = 'threshold_priori_id~score_name'))
+    display(#self.plot_scores(filter = {'if_automatic':[0], 'sample_type':[sample_type], 'set_type' : ['train'], 'simulation_name':[simulation_name]}, x_var = 'sample_nr', y_var='score_value', fill_var = 'model_name', facet = 'threshold_priori_id~score_name')
+            #,self.plot_scores(filter = {'if_automatic':[0], 'sample_type':[sample_type], 'set_type' : ['valid'], 'simulation_name':[simulation_name]}, x_var = 'sample_nr', y_var='score_value', fill_var = 'model_name', facet = 'threshold_priori_id~score_name')
+            self.plot_scores(filter = {'if_automatic':[0], 'sample_type':[sample_type], 'set_type' : ['test'],  'simulation_name':[simulation_name]}, x_var = 'sample_nr', y_var='score_value', fill_var = 'model_name', facet = 'threshold_priori_id~score_name'))
 
   def fast_conf_matrix_scores_flat_version(self, simulation_name, fig_w = 10, fig_h = 2.5):
     # flat version of conf matrix and score
@@ -2556,7 +2556,7 @@ class classification_model():
 
     cf_scores_matrix_test = cf_scores_matrix.loc[cf_scores_matrix['set_type']=='test']
     plotnine.options.figure_size = (fig_w, fig_h)
-    display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='3', color='model_name', fill='model_name', group='model_name')) + ggtitle('(test)'))
+    display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='3', color='model_name', fill='model_name', group='model_name')) + ggtitle('TP (test)'))
     display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='_recall', color='model_name', fill='model_name',group='model_name')) + ggtitle('_recall  (test)'))
     display(ggplot(data=cf_scores_matrix_test) + geom_line(aes(x='threshold_priori_id', y='_precision', color='model_name', fill='model_name', group='model_name')) + ggtitle('precision (test)'))
 
@@ -2709,13 +2709,16 @@ class classification_model():
     if cv_n is not None:
       display(self.h('scores by cross validation'))
       display(self.fast_scores_plot(simulation_name=simulation_name, sample_type = 'cv'))
+      display(self.scores_volatility(simulation_name=simulation_name, sample_type='cv', set_type = ['test']))
     if hold_n is not None:
       display(self.h('scores by holdout'))
       display(self.fast_scores_plot(simulation_name=simulation_name, sample_type = 'hold'))
+      display(self.scores_volatility(simulation_name=simulation_name, sample_type='hold', set_type = ['test']))
     if by_var is not None:
         display(self.h('scores by by_var'))
         display(self.fast_scores_plot(simulation_name=simulation_name, sample_type = 'by_var'))
-    display(self.scores_volatility(simulation_name=simulation_name))
+        display(self.scores_volatility(simulation_name=simulation_name, sample_type='by_var', set_type = ['test']))
+
     display(self.h('pr and roc curve'))
     display(self.plot_roc_pr_curves(simulation_name=simulation_name, set_type='test', sample_type = ['full'], y_category=pos_label))
     display(self.h('pr and roc curve for Feature Importatnce Permutation'))
