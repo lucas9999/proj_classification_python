@@ -71,6 +71,8 @@ from IPython.display import display, HTML
 
 import gc
 
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
 # DISPLAY OPTIONS
 import warnings
 warnings.filterwarnings('ignore')
@@ -253,6 +255,7 @@ class classification_model():
     self.correlation_numeric_kendall      = dict()
     self.correlation_mix_ratio            = dict()
     self.correlation_categorical_v_cramer = dict()
+    self.vif = dict()
     
     # scores
     self.scores             = pd.DataFrame()
@@ -767,7 +770,7 @@ class classification_model():
                   , y_train   = None
                   , x_valid   = None
                   , x_test    = None
-                  ,  cat_vars = None
+                  , cat_vars = None
                   , cat_encoding_method = 'target'
                   , y_to_int = True):
     """
@@ -1832,12 +1835,37 @@ class classification_model():
     
     
     # PART 7: CORRELATIONS determining (target variable not included)
+
     if correlation:
+
+      x_train_correlation = copy.deepcopy(x_train_b)
+      y_train_correlation = copy.deepcopy(y_train_b)
+
+
+      # zmiennej bez 'self' uzywam opcjonalnie jezeli nie chce sie odwolywac do globalnych ustawien
+      num_vars = self.num_vars
+      cat_vars = self.cat_vars
+
+      if use_cat_enc and len(self.cat_vars) > 0:
+          encode = ce.TargetEncoder(cols=self.cat_vars)
+          encode.fit(X=x_train_correlation[self.cat_vars], y=y_train_correlation.astype('int64'))  #
+          x_train_correlation[self.cat_vars] = encode.transform(X=x_train_correlation[self.cat_vars], y=y_train_correlation.astype('int64'))
+          num_vars = num_vars + cat_vars
+
+
+      # VIF
+      if len(num_vars) > 0:
+
+          vif = pd.DataFrame()
+          vif['feature'] = num_vars
+          vif['VIF'] = [variance_inflation_factor(x_train_correlation[num_vars].values, i) for i in range(len(num_vars))]
+          self.vif[simulation_name] = vif
+
       # correlation for numeric variables
       if self.num_vars is not None:
         
-        correlation_numeric_pearson = self.correlation_pearson(data = x_train_b, vars = self.num_vars, method = 'pearson', round = 2)
-        correlation_numeric_kendall = self.correlation_pearson(data = x_train_b, vars = self.num_vars, method = 'kendall', round = 2)
+        correlation_numeric_pearson = self.correlation_pearson(data = x_train_correlation, vars = num_vars, method = 'pearson', round = 2)
+        correlation_numeric_kendall = self.correlation_pearson(data = x_train_correlation, vars = num_vars, method = 'kendall', round = 2)
         
         self.correlation_numeric_pearson[simulation_name]  = correlation_numeric_pearson
         self.correlation_numeric_kendall[simulation_name]  = correlation_numeric_kendall
@@ -1845,14 +1873,14 @@ class classification_model():
       # correlation for categorical variables
       if self.cat_vars is not None:
         
-        correlation_categorical_v_cramer = self.correlation_cramer_v_matrix(data=x_train_b, vars=self.cat_vars,  round = 2)
+        correlation_categorical_v_cramer = self.correlation_cramer_v_matrix(data=x_train_correlation, vars= cat_vars,  round = 2)
         
         self.correlation_categorical_v_cramer[simulation_name] = correlation_categorical_v_cramer
       
       # correlation for mix of categorical and numerical variables
       if self.cat_vars is not None and self.num_vars is not None:
         
-        correlation_mix_ratio = self.correlation_ratio_matrix(data = x_train_b.reset_index(drop=True), vars_cat = self.cat_vars, vars_num = self.num_vars, round = 2)
+        correlation_mix_ratio = self.correlation_ratio_matrix(data = x_train_correlation.reset_index(drop=True), vars_cat = cat_vars, vars_num = self.num_vars, round = 2) # tutaj zostawiam self.num_vars pierwotny
         
         self.correlation_mix_ratio[simulation_name] = correlation_mix_ratio
     
@@ -2080,7 +2108,9 @@ class classification_model():
     """
     # getting probabilities data
     dt = self.probabilities.loc[(self.probabilities['simulation_name']==simulation_name) & (self.probabilities['sample_type'].isin(sample_type))  & (self.probabilities['set_type']==set_type) , :] # if automatic not filtered because it is not included in 'probabilities'
-    
+
+    dt['sample_nr'] = dt['sample_nr'].astype(str)  # 'str' for for gruping in ggplot
+
     # filtering model_name 
     if model_name is not None:
         if type(model_name) != list:
@@ -2098,7 +2128,7 @@ class classification_model():
     
     sample_type_list = sample_type
     model_name_list = list(dt['model_name'].drop_duplicates())
-    sample_nr_list  = list(dt['sample_nr'].drop_duplicates()) # because 'set_number' is fixes and have only one value conflict is imposible !!!
+    sample_nr_list  = list(dt['sample_nr'].drop_duplicates())
     
     if y_category is None:
         y_category_list = self.y_labels
@@ -2119,6 +2149,7 @@ class classification_model():
     for m in model_name_list:
         print(m)
         # loop over sample_nr
+        sample_nr_list = list(dt.loc[dt['model_name'] == m, 'sample_nr'].drop_duplicates())
         for s in sample_nr_list:
             
             precision = dict()
@@ -2182,13 +2213,46 @@ class classification_model():
     
     # data_plot_line = pd.DataFrame({'x':[0,1], 'y':[0,1]})
     # + geom_line(data = data_plot_line, mapping = aes(x='x', y='y' )) 
-    
+
+    # przygotowanie tabeli roc_auc do przeksztalcen i wyswietlenie
+    roc_auc = pd.DataFrame(roc_auc.items(), columns=['model', 'roc_auc'])
+    roc_auc_col_split = roc_auc['model'].str.split('-', n=3, expand=True)
+    roc_auc_col_split.columns = ['model', 'sample', 'label']
+    roc_auc = pd.concat([roc_auc_col_split, roc_auc['roc_auc']], axis=1)
+
+    # przygotowanie tabeli average_precision do przeksztalcen i wyswietlenie
+    average_precision = pd.DataFrame(average_precision.items(), columns=['model', 'average_precision'])
+    average_precision_col_split = average_precision['model'].str.split('-', n=3, expand=True)
+    average_precision_col_split.columns = ['model', 'sample', 'label']
+    average_precision = pd.concat([average_precision_col_split, average_precision['average_precision']], axis=1)
+
+    # statystyki podsumowujace tabele roc_auc
+    roc_auc_summary = roc_auc.groupby('model').agg(mean=pd.NamedAgg(column='roc_auc', aggfunc=lambda x: np.nanmean(x))
+                                                   , median=pd.NamedAgg(column='roc_auc',
+                                                                        aggfunc=lambda x: np.nanmedian(x))
+                                                   , std=pd.NamedAgg(column='roc_auc', aggfunc=lambda x: np.nanstd(
+            x))).reset_index().sort_values(['mean'], ascending=[False])
+
+    # statystyki podsumowujace tabele average_precision
+    average_precision_summary = average_precision.groupby('model').agg(
+        mean=pd.NamedAgg(column='average_precision', aggfunc=lambda x: np.nanmean(x))
+        , median=pd.NamedAgg(column='average_precision', aggfunc=lambda x: np.nanmedian(x))
+        , std=pd.NamedAgg(column='average_precision', aggfunc=lambda x: np.nanstd(x))).reset_index().sort_values(
+        ['mean'], ascending=[False])
+
+
+
     display(ggplot() + geom_step(data = pr,  mapping = aes(x='precision', y='recall', color =  group )) + facet_grid(facet)        + ggtitle('precision-recall'))
     display(ggplot() + geom_step(data = roc, mapping = aes(x='fpr',       y='tpr',    color =  group))  + facet_grid(facets=facet) + ggtitle('roc'))
-    
-    print(np.round(pd.DataFrame.from_dict(data=average_precision, orient='index', columns = ['average_precision']).sort_values(by = 'average_precision', ascending=False), 3) )
-    print(np.round(pd.DataFrame.from_dict(data=roc_auc, orient='index', columns = ['roc_auc']).sort_values(by = 'roc_auc', ascending=False) , 3) )
-  
+
+    print('roc_auc')
+    print(np.round(roc_auc,3))
+    print('average_precision')
+    print(np.round(average_precision,3))
+    print('roc_auc stability')
+    print(np.round(roc_auc_summary,3))
+    print('average precision stability')
+    print(np.round(average_precision_summary,3))
   
   def show_conf_matrix(  self
                        , simulation_name
@@ -2292,6 +2356,7 @@ class classification_model():
       data['correlation_numeric_kendall']      = self.correlation_numeric_kendall
       data['correlation_mix_ratio']            = self.correlation_mix_ratio
       data['correlation_categorical_v_cramer'] = self.correlation_categorical_v_cramer
+      data['vif'] = self.vif
       
       with open(path, 'wb') as file:
         pickle.dump(data, file)
@@ -2333,9 +2398,10 @@ class classification_model():
     self.correlation_numeric_kendall  = data['correlation_numeric_kendall']  
     self.correlation_mix_ratio        = data['correlation_mix_ratio']    
     self.correlation_categorical_v_cramer = data['correlation_categorical_v_cramer']
+    self.vif = data['vif']
   
   
-  
+
   def stacking_between_sim(self, simulation_new_name = 'sim_new', simulation_params = [], method = 'mean'):
     """
     only for 'full'
@@ -2470,15 +2536,17 @@ class classification_model():
       [self.correlation_numeric_pearson.get(simulation_name, pd.DataFrame())
       ,self.correlation_numeric_kendall.get(simulation_name, pd.DataFrame())
       ,self.correlation_mix_ratio.get(simulation_name, pd.DataFrame())
-      ,self.correlation_categorical_v_cramer.get(simulation_name, pd.DataFrame())], ['pearson', 'kendall', 'ratio', 'v_cramer']))
+      ,self.correlation_categorical_v_cramer.get(simulation_name, pd.DataFrame())
+      ,self.vif.get(simulation_name, pd.DataFrame())], ['pearson', 'kendall', 'ratio', 'v_cramer','vif']))
   
   
   def fast_dens_plot( self
                     , simulation_name = None 
                     , y_category      = '1'
                     , score           = 'balanced_accuracy'
-                    , plot_density_sample_frac = 0.1
+                    , plot_density_sample_frac = 0.5
                     , sample_type = 'full'
+                    , facet = 'model_name~.'
                     , fig_w = 15
                     , fig_h = 5):
     """
@@ -2494,7 +2562,7 @@ class classification_model():
                                       , x_var  = y_category
                                       , filter = {'set_type' : ['train'], 'sample_type':sample_type, 'simulation_name':[simulation_name]}
                                       , fill_var = 'y_true'
-                                      , facet  = 'model_name~.'
+                                      , facet  = facet
                                       , x_lim  = [np.nan, np.nan]
                                       , adjust = 0.5
                                       , alpha  = 0.5
@@ -2507,7 +2575,7 @@ class classification_model():
                                       , x_var  = y_category
                                       , filter = {'set_type' : ['test'], 'sample_type':sample_type, 'simulation_name':[simulation_name]}
                                       , fill_var = 'y_true'
-                                      , facet  = 'model_name~.'
+                                      , facet  = facet
                                       , x_lim  = [np.nan, np.nan]
                                       , adjust = 0.5
                                       , alpha  = 0.5
@@ -2517,7 +2585,7 @@ class classification_model():
                                       , fig_w  = fig_w
                                       , fig_h  = fig_h ) # train # test
       
-      
+
       )
   
   def fast_scores_plot( self
@@ -2670,6 +2738,7 @@ class classification_model():
   def map_quantile_threshold(self, simulation_name, model_name, label_to_map = '1', quantiles = [0.5], set_type = 'test', filter_test_indicies = None):
     """
     map_quantile_threshold(simulation_name, model_name, '0', [0.5, 0.2], 'test')
+    używać do klasyfikacji binarnej. W zagadnieniach wieloklasowych raczej nie stosuje się punktu odciecia
     """
     
     labels = self.y_labels
@@ -2707,6 +2776,12 @@ class classification_model():
     display(self.h('density plot for Feature Importatnce Permutation'))
     display(self.fast_dens_plot(simulation_name=simulation_name, sample_type = ['fip','full'], fig_w=15, fig_h=10))
     if cv_n is not None:
+        display(self.h('density plot for cv'))
+        display(self.fast_dens_plot(simulation_name=simulation_name, sample_type=['cv'], facet = 'sample_nr~model_name', fig_w=15, fig_h=10))
+    if hold_n:
+        display(self.h('density plot for hold'))
+        display(self.fast_dens_plot(simulation_name=simulation_name, sample_type=['hold'], facet = 'sample_nr~model_name', fig_w=15, fig_h=10))
+    if cv_n is not None:
       display(self.h('scores by cross validation'))
       display(self.fast_scores_plot(simulation_name=simulation_name, sample_type = 'cv'))
       display(self.scores_volatility(simulation_name=simulation_name, sample_type='cv', set_type = ['test']))
@@ -2723,6 +2798,12 @@ class classification_model():
     display(self.plot_roc_pr_curves(simulation_name=simulation_name, set_type='test', sample_type = ['full'], y_category=pos_label))
     display(self.h('pr and roc curve for Feature Importatnce Permutation'))
     display(self.plot_roc_pr_curves(simulation_name=simulation_name, set_type='test', sample_type = ['fip', 'full'], y_category=pos_label, group = 'model_name', facet = 'sample_nr~variable'))
+    if cv_n is not None:
+        display(self.h('pr and roc curve for cv'))
+        display(self.plot_roc_pr_curves(simulation_name=simulation_name, set_type='test', sample_type=['cv'], y_category=pos_label, group='sample_nr', facet='model_name~variable'))
+    if hold_n is not None:
+        display(self.h('pr and roc curve for hold'))
+        display(self.plot_roc_pr_curves(simulation_name=simulation_name, set_type='test', sample_type=['hold'], y_category=pos_label, group='sample_nr', facet='model_name~variable'))
   
   
   

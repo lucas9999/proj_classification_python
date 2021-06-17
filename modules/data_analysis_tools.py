@@ -1433,7 +1433,7 @@ def shapley_value(model, x_train, y_train, sample_size = 1000):
 
 # >>> Parial Dependence Plot (PDP plot)
 
-def PDP_plot_RF(model, x_train, y_train, var):
+def PDP_plot_RF(model, x_train, y_train, var, labels = None):
     """
     Purpose:
     Partial Dependence Plot base on RandomForest
@@ -1451,7 +1451,13 @@ def PDP_plot_RF(model, x_train, y_train, var):
 
     pdp_df = pd.DataFrame({'probability':pdp[0], 'category':axes[0]})
 
-    display(ggplot(pdp_df) + geom_line(aes(x='category', y='probability')))
+    if labels is not None:
+        pdp_df = pd.merge(pdp_df, labels, left_on = 'category', right_on='encoded_value')
+
+    if labels is None:
+        display(ggplot(pdp_df) + geom_line(aes(x='category', y='probability')))
+    else:
+        display(ggplot(pdp_df) + geom_line(aes(x='category', y='probability', group=1)))
 
 
 
