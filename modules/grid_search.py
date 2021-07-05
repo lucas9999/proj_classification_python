@@ -24,21 +24,22 @@ from plotnine import *
 import plotnine
 
 import optuna
+from optuna import trial
 
 
 class Objective(object):
     def __init__(self
-                 , method='RF'
-                 , opt_function='aps'
-                 , calibration_method=None
-                 , pos_label=None
-                 , params=None
-                 , threshold=None
-                 , priori=None
-                 , x_train=None
-                 , y_train=None
-                 , x_test=None
-                 , y_test=None):
+                 , method = 'RF'
+                 , opt_function = 'aps'
+                 , calibration_method = None
+                 , pos_label = None
+                 , params    = None
+                 , threshold = None
+                 , priori    = None
+                 , x_train   = None
+                 , y_train   = None
+                 , x_test    = None
+                 , y_test    = None):
         # Hold this implementation specific arguments as the fields of the class.
         self.method = method
         self.opt_function = opt_function
@@ -65,11 +66,16 @@ class Objective(object):
         # else:
         #   x_var = x_train.columns
 
+        if self.params is not None:
+            params = exec(self.params)
+        else:
+            params = None
+
         if self.method == 'SVC':  # support vectors machine
 
             SVM_params = {
                 'svc_c': trial.suggest_loguniform('svc_c', 1e-10, 1e10)}
-            if self.params is not None:
+            if params is not None:
                 SVM_params.update(params)
             model = sklearn.svm.SVC(**SVM_params)
 
@@ -83,7 +89,7 @@ class Objective(object):
                 , 'bootstrap': trial.suggest_categorical('bootstrap', [True, False])
                 , 'class_weight': trial.suggest_categorical('class_weight', ['balanced', 'balanced_subsample', None])
             }
-            if self.params is not None:
+            if params is not None:
                 RF_params.update(params)
             model = RandomForestClassifier(**RF_params, n_jobs=15)
 
@@ -94,7 +100,7 @@ class Objective(object):
                 , 'learning_rate': trial.suggest_uniform('learning_rate', 0.05, 0.3)
                 , 'algorithm': trial.suggest_categorical('algorithm', ['SAMME.R', 'SAMME'])
             }
-            if self.params is not None:
+            if params is not None:
                 AB_params.update(params)
             model = AdaBoostClassifier(**AB_params)
 
@@ -106,7 +112,7 @@ class Objective(object):
                 , 'max_depth': int(trial.suggest_loguniform('max_depth', 2, 50))
                 , 'loss': trial.suggest_categorical('loss', ['deviance', 'exponential'])
             }
-            if self.params is not None:
+            if params is not None:
                 GB_params.update(params)
             model = GradientBoostingClassifier(**GB_params)
 
@@ -115,7 +121,7 @@ class Objective(object):
             NB_params = {
                 'var_smoothing': trial.suggest_loguniform('var_smoothing', 1e-10, 1e-05)
             }
-            if self.params is not None:
+            if params is not None:
                 NB_params.update(params)
             model = skl.naive_bayes.GaussianNB(**NB_params)
 
@@ -124,7 +130,7 @@ class Objective(object):
             KNN_params = {
                 'n_neighbors': int(trial.suggest_loguniform('n_neighbors', 3, 7))
             }
-            if self.params is not None:
+            if params is not None:
                 KNN_params.update(params)
             model = skl.neighbors.KNeighborsClassifier(**KNN_params)
 
@@ -133,7 +139,7 @@ class Objective(object):
                 'penalty': trial.suggest_categorical('penalty', ['l1', 'l2'])
                 , 'fit_intercept': trial.suggest_categorical('fit_intercept', [True, False])
             }
-            if self.params is not None:
+            if params is not None:
                 LR_params.update(params)
             model = skl.linear_model.LogisticRegression(**LR_params)
 
@@ -143,7 +149,7 @@ class Objective(object):
                 'penalty': trial.suggest_categorical('penalty', ['l1', 'l2'])
                 , 'fit_intercept': trial.suggest_categorical('fit_intercept', [True, False])
             }
-            if self.params is not None:
+            if params is not None:
                 LGBM_params.update(params)
             model = LGBMClassifier(**LGBM_params)
 
@@ -159,7 +165,7 @@ class Objective(object):
                 # ,'reg_lambda':       trial.suggest_loguniform( 'reg_lambda', 0, 1)
                 # ,'reg_alpha' :       trial.suggest_loguniform( 'reg_alpha', 0, 1)
             }
-            if self.params is not None:
+            if params is not None:
                 XGB_params.update(params)
             model = XGBClassifier(**XGB_params, nthread=15)
 
@@ -171,7 +177,7 @@ class Objective(object):
                 , 'learning_rate': trial.suggest_loguniform('learning_rate', 0.01, 0.5)
                 , 'depth': int(trial.suggest_loguniform('depth', 2, 16))
             }
-            if self.params is not None:
+            if params is not None:
                 CAT_params.update(params)
             model = CatBoostClassifier(**CAT_params, early_stopping_rounds=75, logging_level='Silent')
 
@@ -297,13 +303,14 @@ class Objective(object):
 ##################
 
 
-def grid_optuna_(methods_list=None
+def grid_optuna_(  methods_list=None
                  , direction="maximize"
                  , opt_function='aps'
                  , thresholds_list=None
                  , pos_label=None
                  , priori=None
                  , n_trials=10
+                 , params_for_methods=None
                  , x_train=None
                  , y_train=None
                  , x_test=None
@@ -317,6 +324,11 @@ def grid_optuna_(methods_list=None
         # i = 0
         # loop over thresholds
         method = methods_list[i]
+        if params_for_methods is not None:
+            params = params_for_methods.get(method, None)
+        else:
+            params = None
+
         for j in range(len(thresholds_list)):
             # j = 0
             print([method, j])
@@ -326,7 +338,7 @@ def grid_optuna_(methods_list=None
 
             # grid
             ob = Objective(method=method, opt_function=opt_function, x_train=x_train, y_train=y_train, x_test=x_test,
-                           y_test=y_test, threshold=threshold, priori=priori, pos_label=pos_label)
+                           y_test=y_test, threshold=threshold, priori=priori, pos_label=pos_label, params=params)
             study = optuna.create_study(direction=direction)
             opt = study.optimize(ob, n_trials=n_trials, gc_after_trial=True)
 

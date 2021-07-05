@@ -833,7 +833,7 @@ class classification_model():
                                   , x_test        = None
                                   , y_test        = None):
     """ 
-    feature importance with CatBoost (based on test set if privided)
+    feature importance with CatBoost (based on test set if provided)
     """
     
     # getting indicies of categorical variables
@@ -1088,6 +1088,8 @@ class classification_model():
                   ,full_importance_n = [15,6,0.1] # [n_estimators, max_dept, learning_rate]
                   # by col
                   ,by_var = None # list with one column
+                  ,by_var_save_prob = True
+                  ,by_var_save_class = True
                   # Feature importance Permutation (FIP)
                   ,fip_n = None # number of tries in future importatnce
                   ,fip_sample_size = 0.5 # fraction of observation drawn for each sample
@@ -1542,7 +1544,7 @@ class classification_model():
                 model_j.fit(x_train_i, y_train_i) # , sw_train
             
             # probabilities prediction calculation and saving
-            if hold_save_prob:
+            if by_var_save_prob:
                 
                 prob_train = pd.DataFrame(model_j.predict_proba(x_train_i), columns = [str(x) for x in model_j.classes_], index = x_train_i.index)
                 # print(prob_train.shape)
@@ -1561,7 +1563,7 @@ class classification_model():
                                                   , prob = prob_test, simulation_name = simulation_name, model_name = model_j_name, sample_type = sample_type, sample_nr = f, sample_name = str(i), set_type = 'test')
             
             # classification calculation and saving (automatic based on default setting in 'proba' function)
-            if hold_save_class:
+            if by_var_save_class:
               
                 self.classification_decision_automatic( x = x_train_i, y_true = y_train_i
                                                       , model = model_j, simulation_name = simulation_name, model_name = model_j_name, sample_type = sample_type, sample_nr = f, sample_name = str(i), set_type = 'train')
@@ -2089,7 +2091,11 @@ class classification_model():
       return((ggplot(data=data ) + 
               geom_point( aes(x = x_var, y = y_var,  color = fill_var)) + 
               geom_line(  aes(x = x_var, y = y_var,  color = fill_var)) + 
-              facet ))
+              facet ) + theme(strip_text_y = element_text(angle = 0,              # change facet text angle
+                                        ha = 'left'             # change text alignment
+                                       ),  strip_background_y = element_text(color = '#969dff' # change background colour of facet background
+                                              , width = 0.2     # adjust width of facet background to fit facet text
+                                             ) ))
   
   
   
@@ -2555,7 +2561,7 @@ class classification_model():
     
     # return without list !!!. If not, plot will be duplicated
     if type(sample_type) != list:
-      sample_type = list(sample_type)
+      sample_type = [sample_type]
     
     if sample_type[0] in list(self.probabilities['sample_type'].drop_duplicates()):
       display(self.plot_probabilities_density(data_new = None
@@ -2773,7 +2779,7 @@ class classification_model():
     display(self.fast_conf_matrix_scores_flat_version(simulation_name=simulation_name))
     display(self.h('density plots'))
     display(self.fast_dens_plot(simulation_name=simulation_name, sample_type = ['full'], fig_w=15, fig_h=5))
-    display(self.h('density plot for Feature Importatnce Permutation'))
+    display(self.h('density plot for Feature Importance Permutation'))
     display(self.fast_dens_plot(simulation_name=simulation_name, sample_type = ['fip','full'], fig_w=15, fig_h=10))
     if cv_n is not None:
         display(self.h('density plot for cv'))
