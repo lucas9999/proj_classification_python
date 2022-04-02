@@ -1032,7 +1032,65 @@ def plot_heatmap(data = None, width = 10, height = 10, color_threshold = 0.75):
   plt.show()
 
 
+def plot_scatterplot( data = None
+                                , x_var    = None
+                                , y_var    = None
+                                , filter   = None
+                                , fill_var = None
+                                , facet    = None
+                                , x_lim    = [np.nan, np.nan]
+                                , alpha    = 0.5
+                                , size     = 2
+                                , frac     = 1
+                                , title    = ''
+                                , fig_w    = 15
+                                , fig_h    = 5):
+    """
+    
+    """
+    # plot size
+    plotnine.options.figure_size = (fig_w, fig_h)
+    
 
+    # filtering data
+    if filter is not None:
+        for i in filter.keys():
+            data = data.loc[data[i].isin(filter[i]), :]
+
+    # variable used for 'fill 'converted into string (plotnine requirement)
+    if fill_var is not None:
+        data[fill_var] = data[fill_var].astype(str)
+
+    # faceting of plot
+    if facet is None:
+        facet = facet_null()
+    else:
+        facet = facet_grid(facets=facet, scales='free_y')
+
+    # sampling data (plotting big data set can be impossible)
+    if len(data) < 50000 and len(data) > 1:
+        data = data.sample(frac=frac)
+    else:
+        data = data.sample(n=50000)
+
+    if len(data) == 0:
+        print('LUCAS: after filtering no data to display. Suggestion is to check "set_type" if exists')
+    else:
+        if fill_var is not None:
+            return (ggplot(data=data, mapping=aes(x=x_var, y=y_var, colour=fill_var, fill=fill_var)) +
+                    geom_point(size=size, alpha=alpha) +
+                    geom_smooth(method='lm', na_rm=True, inherit_aes=True, show_legend=None, raster=False,
+                                legend_fill_ratio=0.5) +
+                    facet + xlim(x_lim) +
+                    ggtitle(title))
+        else:
+            return (ggplot(data=data, mapping=aes(x=x_var, y=y_var)) +
+                    geom_point(size=size, alpha=alpha) +
+                    geom_smooth(method='lm', na_rm=True, inherit_aes=True, show_legend=None, raster=False,
+                                legend_fill_ratio=0.5) +
+                    facet +
+                    xlim(x_lim) +
+                    ggtitle(title))
 
 
 #########################################
@@ -1504,7 +1562,6 @@ def feature_importance_logistic_regression(x_train=None, y_train=None, plot = Fa
 
 
 
-
 # >>> Elastic net with logistic regression <<<
 
 
@@ -1620,6 +1677,87 @@ def var_numerical_summary(data, var_x, var_y, var_group=None, round=2, filters_n
     display(correlation_pearson(data=data, vars = [var_x, var_y]))
     display(h('wasserstein distance'))
     display(distance_wasserstein_target(data, var_x , var_y))
+
+
+    
+    
+
+
+
+def var_numerical_vs_numerical_summary(data, var_x, var_y, var_y_num, var_group=None, round=2, filters_num=None):
+    display(h('statistics'))
+    print('braki danych: ' + str(np.round(100 * sum(pd.isna(data[var_x])) /len(data) ,2) ) + ' %' )
+    display(statistics_numeric(  data      = data  # data set
+                       , var_x     = var_x # variable
+                       , var_group = None  # grouping variable (optional)
+                       , x_lim     = None  # min-max values limit (for example to remove outliers)
+                       , round     = 2))    # number of decimal places to round
+
+    display(h('statistics - grouped'))
+    display(statistics_numeric(  data      = data  # data set
+                       , var_x     = var_x # variables
+                       , var_group = var_group  # grouping variable (optional)
+                       , x_lim     = None  # min-max values limit (for example to remove outliers)
+                       , round     = round))    # number of decimal places to round
+
+    if filters_num is not None:
+        data = outliers_num_fitler(data=data, var=var_x, filters_num=filters_num)
+
+    display(h('density plot'))
+    # bez grupowania
+    display(plot_density(  data      = data  # data set
+                 , var_x     = var_x # grouping variable (optional)
+                 , var_group = None  # variable
+                 , bw_method = 0.2   # bandwidth for kernel
+                 , x_lim     = None  # min-max values limit (for example to remove outliers)
+                 , fig_w     = 12    # plot width
+                 , fig_h     = 8))    # plot hight
+
+    display(h('density plot - grouped'))
+    display(plot_density(  data      = data  # data set
+                 , var_x     = var_x # grouping variable (optional)
+                 , var_group = var_group # variables
+                 , bw_method = 0.2   # bandwidth for kernel
+                 , x_lim     = None  # min-max values limit (for example to remove outliers)
+                 , fig_w     = 12    # plot width
+                 , fig_h     = 8))    # plot hight
+    
+    if var_group is None:
+        facet = None
+    else:
+        facet = '.~'+var_group
+    
+    display(plot_scatterplot( data = data
+                                , x_var    = var_x
+                                , y_var    = var_y
+                                , filter   = None
+                                , fill_var = None
+                                , facet    = facet
+                                , x_lim    = [np.nan, np.nan]
+                                , alpha    = 0.5
+                                , size     = 2
+                                , frac     = 1
+                                , title    = 'scatter plot - '.format()
+                                , fig_w    = 15
+                                , fig_h    = 7))
+    
+    
+    display(h('pearson correlation with target'))
+    if var_group is None:
+        display(correlation_pearson(data=data, vars = [var_x, var_y]).iloc[0,1])
+    else:
+        correlations_dict = dict()
+        for i in list(data[var_group].drop_duplicates()):
+            correlations_dict[i]=correlation_pearson(data=data[data[var_group]==i], vars = [var_x, var_y]).iloc[0,1]
+        print(correlations_dict)
+    display(h('mutual information normalized'))
+    if var_group is None:
+        display(ennemi.estimate_mi(y=data[var_x], x=data[var_y], normalize=True))
+    else:
+        mi_dict = dict()
+        for i in list(data[var_group].drop_duplicates()):
+            mi_dict[i]=np.round(ennemi.estimate_mi(y=data.loc[data[var_group]==i, var_x], x=data.loc[data[var_group]==i, var_y], normalize=True ).iloc[0,0], round)
+        print(mi_dict)
 
 
 

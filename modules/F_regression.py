@@ -7,7 +7,6 @@ import plotnine
 import seaborn     as sb
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 import warnings
 import os
 import itertools   as it
@@ -17,6 +16,7 @@ import math
 import copy  # deepcopies
 import scipy
 import imblearn  # problem of imbalanced samples
+import ennemi
 
 from scipy import stats
 from scipy.special import boxcox, inv_boxcox
