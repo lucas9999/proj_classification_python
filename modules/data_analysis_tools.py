@@ -166,7 +166,7 @@ def summary_missing_grouped(data, group_vars):
 
 # >>> cross tables <<<<
 
-def cross_tab(data, var_1 = None, var_2 = None, round = 1, normalize = 'index'):
+def cross_tab(data, var_1 = None, var_2 = None, round = 1, normalize = 'index', drop_na = False):
   """
   Purpose:
     Table with count for each categories in one or two categorical variables. Results are also displayed as percentage. 
@@ -188,8 +188,8 @@ def cross_tab(data, var_1 = None, var_2 = None, round = 1, normalize = 'index'):
     cross_tab(data=data_, var_1='zrodlo_dochodu', var_2 = 'FLAGA_RESPONSE')
   """
   
-  t1 = data[var_1].value_counts()
-  t2 = np.round(100*data[var_1].value_counts(normalize=True), round)
+  t1 = data[var_1].fillna(' NaN').value_counts(dropna=drop_na)
+  t2 = np.round(100*data[var_1].fillna(' NaN').value_counts(normalize=True, dropna=drop_na), round)
   res = pd.concat([t1,t2], axis=1)
   # res = res.reset_index(drop = False)
   res.columns = ['count', 'percent']
@@ -197,9 +197,9 @@ def cross_tab(data, var_1 = None, var_2 = None, round = 1, normalize = 'index'):
   if var_2 is None:
     return(res)
   else:
-    t3 = pd.crosstab(data[var_1], data[var_2])
+    t3 = pd.crosstab(data[var_1].fillna(' NaN'), data[var_2].fillna(' NaN'), dropna=drop_na)
     t3.columns = ['c(' + str(x)+')' for x in t3.columns]
-    t4 = np.round(100*pd.crosstab(data[var_1], data[var_2], normalize = normalize), round) # columns
+    t4 = np.round(100*pd.crosstab(data[var_1].fillna(' NaN'), data[var_2].fillna(' NaN'), normalize = normalize, dropna=drop_na), round) # columns
     t4.columns = ['p(' + str(x)+')' for x in t4.columns]
     t5 = pd.concat([t3, t4], axis=1)
     res = pd.merge(res, t5, left_index=True, right_index=True)
@@ -218,10 +218,11 @@ def plot_count_bar(data, var_y, var_x, x_angle = 0, x_text_size = 8):
 
 
 def plot_percent_data(data, var_y, var_x, x_angle = 0, x_text_size = 8):
+    data[var_x] = data[var_x].astype(str)
     data_percent = data.groupby([var_y, var_x]).size()
     data_percent = data_percent / data_percent.groupby(level=[0]).transform("sum") * 100
     data_percent = data_percent.reset_index(name='counts')
-    print((ggplot(data=data_percent) + geom_bar(aes(x=var_x, y='counts', fill = var_x), stat='identity') + geom_label(
+    print((ggplot(data=data_percent) + geom_bar(aes(x='factor()'.format(var_x), y='counts', fill = var_x), stat='identity') + geom_label(
         aes(x=var_x, y='counts', label='counts'), format_string='({:.1f}%)') + facet_grid('.~'+var_y)  + theme(axis_text_x = element_text(rotation=x_angle, size = x_text_size) ) ) )
 
 
@@ -251,6 +252,19 @@ def plot_quantiles_grouped(data, group_var, var_y, x_angle = 0, x_text_size = 10
   display((ggplot(data=data_q) + geom_line(
       aes(x=group_var, y='value', fill='variable', color='variable', group='variable')  ) + theme(axis_text_x = element_text(rotation=x_angle, size = x_text_size)) ))
 
+
+    
+def plot_percent_data_not_grouped(data=data, var_x='color', x_angle=0, x_text_size = 0):
+    data[var_x] = data[var_x].astype(str)
+    data_percent = data.groupby([var_x]).size()
+    data_percent = data_percent / data.shape[0]*100
+    data_percent = data_percent.reset_index(name='counts')
+    print((ggplot(data=data_percent) + geom_bar(aes(x=var_x, y='counts', fill = var_x), stat='identity') + geom_label(
+    aes(x=var_x, y='counts', label='counts'), format_string='({:.1f}%)')  + theme(axis_text_x = element_text(rotation=x_angle, size = x_text_size) ) ) )    
+    
+    
+    
+    
 
 
 def variable_diagnostic(data, var, print_res = True, levels_n_limit = 7, levels_n_max = 30):
@@ -1273,7 +1287,7 @@ def rand_var(data = None, prexid = 'rand_'):
 
 # >>> Feature importance from package catboot <<<
 
-def feature_importance_class_CB(iterations = 30, learning_rate = 0.1,  depth = 5, cat_features = None, x_train = None, y_train = None):
+def feature_importance_class_CB(iterations = 30, learning_rate = 0.1,  depth = 5, cat_features = None, x_train = None, y_train = None, regression=False):
     """ 
     Purpose:
     feature importance with CataBoost for categorical objective feature 
@@ -1285,7 +1299,10 @@ def feature_importance_class_CB(iterations = 30, learning_rate = 0.1,  depth = 5
         cat_indicies = [x_train.columns.get_loc(c) for c in cat_features if c in x_train]
     else:
         cat_indicies = None
-    cb = CatBoostClassifier(  iterations = iterations, learning_rate=learning_rate, depth=depth)
+    if regression:
+        cb = CatBoostClassifier(  iterations = iterations, learning_rate=learning_rate, depth=depth)
+    else:
+        cb = CatBoostRegressor(  iterations = iterations, learning_rate=learning_rate, depth=depth)
     cb.fit(x_train, y_train, plot = False, cat_features = cat_indicies,  use_best_model=True, early_stopping_rounds=75,  silent=True)
     
     return(np.round(cb.get_feature_importance(prettified=True), 3))
@@ -1632,7 +1649,33 @@ def var_categorical_summary(data, var_x, var_y, x_angle = 0, normalize='index', 
 
 
 
+def var_categorical_numerical_summary(data, var_x, var_y=None, var_target=None,  x_angle = 0, normalize='index', x_text_size = 7):
+    display(h('statistics by target classes'))
+    print('braki danych: ' + str(np.round(100 * sum(pd.isna(data[var_x])) / len(data), 2 )  ) + ' %' )
+    
+    display(cross_tab(data, var_1 = var_x, var_2 = None, round = 1, normalize = 'index'))
+    
+    if var_y is not None:
+        display(cross_tab(  data      = data
+                  , var_1     = var_y
+                  , var_2     = var_x
+                  , round     = 1
+                  , normalize = normalize))
 
+    plot_percent_data_not_grouped(data, var_x, x_angle=x_angle, x_text_size = x_text_size)
+    if var_y is not None:
+        plot_percent_data(data, var_y, var_x, x_angle=x_angle, x_text_size = x_text_size)
+        
+        
+    display(h('ratio correlation with target'))
+    ratio = correlation_ratio(data[var_x], data[var_target], round=2)
+    print(ratio)
+    
+    if var_y is not None:
+        display(h('V-cramer with grouping var'))
+        display(correlation_cramers_v(  var_1 = data[var_x]
+                              , var_2 = data[var_y]
+                              , round = 2))
 
 
 def var_numerical_summary(data, var_x, var_y, var_group=None, round=2, filters_num=None):
