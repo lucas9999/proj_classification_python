@@ -1858,21 +1858,27 @@ class classification_model():
                     coord_flip())
 
 
-    def scores_volatility(self, simulation_name, sample_type, set_type):
+    def scores_volatility(self, simulation_name, sample_type, set_type, score_name = None):
         scores = self.scores
-
-        scores_filtered = scores.loc[(scores['simulation_name'] == simulation_name) & (
-                    scores['sample_type'] == sample_type) & (scores['set_type'].isin(set_type))]
+        if score_name is None:
+            scores_filtered = scores.loc[(scores['simulation_name'] == simulation_name) & (
+                        scores['sample_type'].isin(sample_type)) & (scores['set_type'].isin(set_type))]
+        else:
+            scores_filtered = scores.loc[(scores['simulation_name'] == simulation_name) & (
+                        scores['sample_type'].isin(sample_type)) & (scores['set_type'].isin(set_type)) & (scores['score_name'].isin(score_name))]
 
         scores_group = scores_filtered.groupby(
             ['model_name', 'set_type', 'sample_type', 'score_name']).agg(
             max=pd.NamedAgg(column='score_value', aggfunc='max'),
             min=pd.NamedAgg(column='score_value', aggfunc=lambda x: min(x)),
             mean=pd.NamedAgg(column='score_value', aggfunc=lambda x: np.nanmean(x)),
+            median=pd.NamedAgg(column='score_value', aggfunc=lambda x: np.nanmedian(x)),
             std=pd.NamedAgg(column='score_value', aggfunc=lambda x: np.nanstd(x))
         )
 
         scores_group = scores_group.reset_index()
+        scores_group = scores_group.sort_values(['score_name','median'], ascending=[True, False])
+        
         return (scores_group)
 
     def plot_scores(self
@@ -2442,15 +2448,20 @@ class classification_model():
         if cv_n is not None:
             display(self.h('scores by cross validation'))
             display(self.fast_scores_plot(simulation_name=simulation_name, sample_type='cv'))
-            display(self.scores_volatility(simulation_name=simulation_name, sample_type='cv', set_type=['test']))
+            display(self.scores_volatility(simulation_name=simulation_name, sample_type=['cv'], set_type=['test']))
         if hold_n is not None:
             display(self.h('scores by holdout'))
             display(self.fast_scores_plot(simulation_name=simulation_name, sample_type='hold'))
-            display(self.scores_volatility(simulation_name=simulation_name, sample_type='hold', set_type=['test']))
+            display(self.scores_volatility(simulation_name=simulation_name, sample_type=['hold'], set_type=['test']))
         if by_var is not None:
             display(self.h('scores by by_var'))
             display(self.fast_scores_plot(simulation_name=simulation_name, sample_type='by_var'))
-            display(self.scores_volatility(simulation_name=simulation_name, sample_type='by_var', set_type=['test']))
+            display(self.scores_volatility(simulation_name=simulation_name, sample_type=['by_var'], set_type=['test']))
+        if fip_n is not None:
+            display(self.h('scores by fip_n'))
+            display(self.fast_scores_plot(simulation_name=simulation_name, sample_type='fip'))
+            display(self.scores_volatility(simulation_name=simulation_name, sample_type=['fip', 'full'], set_type=['test']))
+            display(self.scores_volatility(simulation_name=simulation_name, sample_type=['fip', 'full'], set_type=['test'], score_name = ['explained_var_score']))
 
 
     def h(self, text, size=3, bold=True, color='blue'):

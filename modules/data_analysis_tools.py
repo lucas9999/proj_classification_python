@@ -222,7 +222,7 @@ def plot_percent_data(data, var_y, var_x, x_angle = 0, x_text_size = 8):
     data_percent = data.groupby([var_y, var_x]).size()
     data_percent = data_percent / data_percent.groupby(level=[0]).transform("sum") * 100
     data_percent = data_percent.reset_index(name='counts')
-    print((ggplot(data=data_percent) + geom_bar(aes(x='factor()'.format(var_x), y='counts', fill = var_x), stat='identity') + geom_label(
+    print((ggplot(data=data_percent) + geom_bar(aes(x='factor({})'.format(var_x), y='counts', fill = var_x), stat='identity') + geom_label(
         aes(x=var_x, y='counts', label='counts'), format_string='({:.1f}%)') + facet_grid('.~'+var_y)  + theme(axis_text_x = element_text(rotation=x_angle, size = x_text_size) ) ) )
 
 
@@ -254,7 +254,7 @@ def plot_quantiles_grouped(data, group_var, var_y, x_angle = 0, x_text_size = 10
 
 
     
-def plot_percent_data_not_grouped(data=data, var_x='color', x_angle=0, x_text_size = 0):
+def plot_percent_data_not_grouped(data=None, var_x='color', x_angle=0, x_text_size = 0):
     data[var_x] = data[var_x].astype(str)
     data_percent = data.groupby([var_x]).size()
     data_percent = data_percent / data.shape[0]*100
@@ -393,7 +393,7 @@ def glimpse_data_extended(data = None, levels_n_limit = 7, levels_n_max=35, copy
 
 # t1 = glimpse_data_extended(data=data)
 # from IPython.terminal.debugger import set_trace
-def A_F_correlation_selection(data = None, y = None, analytical_table_file = None, sheet = 'Arkusz1', round = 2):
+def A_F_correlation_selection(data = None, y = None, analytical_table_file = None, sheet = 'Arkusz1', round = 2, copy_to_clipboard = True):
 #   import pdb; pdb.set_trace()
   # y = ''
   # sheet = 'Arkusz1'
@@ -456,7 +456,8 @@ def A_F_correlation_selection(data = None, y = None, analytical_table_file = Non
     df_corr = pd.concat([df_corr, pd.DataFrame({'var':[x], 'v_cramer_':[v_cramer], 'pearson_':[pearson], 'ratio_':[ratio], 'kendall_':[kendall]})], axis = 0)
   
   result = pd.merge(left = analytical_table_full.loc[:,'index':'kendall'], right=df_corr, left_on=['var'], right_on=['var'])
-  result.to_clipboard(index = False)
+  if copy_to_clipboard:
+      result.to_clipboard(index = False)
   return(result)
 
 
@@ -918,7 +919,7 @@ def plot_density(data, var_group = None, var_x = None, bw_method = 0.2, x_lim = 
     plot_density(data = data_set, var_group='FLAGA_RESPONSE', var_x = 'max_dpd_60', bw_method=0.3, x_lim=[0, 20])
   """
   plt.figure()
-  fig, axes = plt.subplots(1, 2, figsize = (fig_w, fig_h))
+  fig, axes = plt.subplots(1, 2, figsize = (fig_h, fig_w))
   
   
   if x_lim is not None:
@@ -1518,7 +1519,7 @@ def shapley_value(model, x_train, y_train, sample_size = 1000):
 
 # >>> Parial Dependence Plot (PDP plot)
 
-def PDP_plot_RF(model, x_train, y_train, var, labels = None):
+def PDP_plot_RF(model, x_train, y_train, var, labels = None, regression=False):
     """
     Purpose:
     Partial Dependence Plot base on RandomForest
@@ -1529,8 +1530,10 @@ def PDP_plot_RF(model, x_train, y_train, var, labels = None):
     from sklearn.inspection import partial_dependence
     
     model.fit(x_train, y_train)
-
-    t1 = model.predict_proba(X=x_train)
+    if regression:
+        t1 = model.predict(X=x_train)
+    else:
+        t1 = model.predict_proba(X=x_train)
 
     pdp, axes = partial_dependence(model, x_train, features = [var_index])
 
@@ -1649,7 +1652,7 @@ def var_categorical_summary(data, var_x, var_y, x_angle = 0, normalize='index', 
 
 
 
-def var_categorical_numerical_summary(data, var_x, var_y=None, var_target=None,  x_angle = 0, normalize='index', x_text_size = 7):
+def var_categorical_numerical_summary(data, var_x, var_y=None, var_target=None,  x_angle = 0, normalize='index', x_text_size = 7, filters_num=None):
     display(h('statistics by target classes'))
     print('braki danych: ' + str(np.round(100 * sum(pd.isna(data[var_x])) / len(data), 2 )  ) + ' %' )
     
@@ -1661,12 +1664,12 @@ def var_categorical_numerical_summary(data, var_x, var_y=None, var_target=None, 
                   , var_2     = var_x
                   , round     = 1
                   , normalize = normalize))
+        
 
     plot_percent_data_not_grouped(data, var_x, x_angle=x_angle, x_text_size = x_text_size)
     if var_y is not None:
         plot_percent_data(data, var_y, var_x, x_angle=x_angle, x_text_size = x_text_size)
-        
-        
+    
     display(h('ratio correlation with target'))
     ratio = correlation_ratio(data[var_x], data[var_target], round=2)
     print(ratio)
@@ -1676,6 +1679,17 @@ def var_categorical_numerical_summary(data, var_x, var_y=None, var_target=None, 
         display(correlation_cramers_v(  var_1 = data[var_x]
                               , var_2 = data[var_y]
                               , round = 2))
+        
+    display(h('density plot - grouped'))
+    if filters_num is not None:
+        data = outliers_num_fitler(data=data, var=var_target, filters_num=filters_num)
+    display(plot_density(  data      = data  # data set
+                 , var_x     = var_target # grouping variable (optional)
+                 , var_group = var_x # variables
+                 , bw_method = 0.2   # bandwidth for kernel
+                 , x_lim     = None  # min-max values limit (for example to remove outliers)
+                 , fig_w     = 12    # plot width
+                 , fig_h     = 8))    # plot hight
 
 
 def var_numerical_summary(data, var_x, var_y, var_group=None, round=2, filters_num=None):
@@ -1727,7 +1741,7 @@ def var_numerical_summary(data, var_x, var_y, var_group=None, round=2, filters_n
 
 
 
-def var_numerical_vs_numerical_summary(data, var_x, var_y, var_y_num, var_group=None, round=2, filters_num=None):
+def var_numerical_vs_numerical_summary(data, var_x, var_y, var_group=None, round=2, facet_horizontal=True, filters_num=None):
     display(h('statistics'))
     print('braki danych: ' + str(np.round(100 * sum(pd.isna(data[var_x])) /len(data) ,2) ) + ' %' )
     display(statistics_numeric(  data      = data  # data set
@@ -1745,6 +1759,7 @@ def var_numerical_vs_numerical_summary(data, var_x, var_y, var_y_num, var_group=
 
     if filters_num is not None:
         data = outliers_num_fitler(data=data, var=var_x, filters_num=filters_num)
+        data = outliers_num_fitler(data=data, var=var_y, filters_num=filters_num)
 
     display(h('density plot'))
     # bez grupowania
@@ -1768,39 +1783,57 @@ def var_numerical_vs_numerical_summary(data, var_x, var_y, var_y_num, var_group=
     if var_group is None:
         facet = None
     else:
-        facet = '.~'+var_group
+        if facet_horizontal:
+           facet = '.~'+var_group
+           fig_h = 5
+        else:
+          facet = var_group+'~.'   
+          fig_h = 3*len(list(data[var_group].value_counts()))
     
     display(plot_scatterplot( data = data
                                 , x_var    = var_x
                                 , y_var    = var_y
                                 , filter   = None
                                 , fill_var = None
-                                , facet    = facet
+                                , facet    = None
                                 , x_lim    = [np.nan, np.nan]
                                 , alpha    = 0.5
                                 , size     = 2
                                 , frac     = 1
                                 , title    = 'scatter plot - '.format()
                                 , fig_w    = 15
-                                , fig_h    = 7))
+                                , fig_h    = 5))
+    if var_group is not None:
+        display(plot_scatterplot( data = data
+                                    , x_var    = var_x
+                                    , y_var    = var_y
+                                    , filter   = None
+                                    , fill_var = None
+                                    , facet    = facet
+                                    , x_lim    = [np.nan, np.nan]
+                                    , alpha    = 0.5
+                                    , size     = 2
+                                    , frac     = 1
+                                    , title    = 'scatter plot - '.format()
+                                    , fig_w    = 10
+                                    , fig_h    = fig_h ))
     
     
     display(h('pearson correlation with target'))
-    if var_group is None:
-        display(correlation_pearson(data=data, vars = [var_x, var_y]).iloc[0,1])
-    else:
+    display(correlation_pearson(data=data, vars = [var_x, var_y]).iloc[0,1])
+    if var_group is not None:
         correlations_dict = dict()
         for i in list(data[var_group].drop_duplicates()):
             correlations_dict[i]=correlation_pearson(data=data[data[var_group]==i], vars = [var_x, var_y]).iloc[0,1]
         print(correlations_dict)
     display(h('mutual information normalized'))
-    if var_group is None:
-        display(ennemi.estimate_mi(y=data[var_x], x=data[var_y], normalize=True))
-    else:
+    display(ennemi.estimate_mi(y=data[var_x], x=data[var_y], normalize=True))
+    if var_group is not None:
         mi_dict = dict()
         for i in list(data[var_group].drop_duplicates()):
             mi_dict[i]=np.round(ennemi.estimate_mi(y=data.loc[data[var_group]==i, var_x], x=data.loc[data[var_group]==i, var_y], normalize=True ).iloc[0,0], round)
         print(mi_dict)
+
 
 
 
